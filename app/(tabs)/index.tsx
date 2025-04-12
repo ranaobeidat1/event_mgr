@@ -1,74 +1,123 @@
-import { Image, StyleSheet, Platform } from 'react-native';
+import React, { useState } from "react";
+import {
+  FlatList,
+  Modal,
+  TouchableOpacity,
+  View,
+  Text,
+  SafeAreaView,
+  Image,
+  ScrollView,
+} from "react-native";
+import { Link } from "expo-router";
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-
-export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12'
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          Tap the Explore tab to learn more about what's included in this starter app.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          When you're ready, run{' '}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
-  );
+// Define the Post type with an image property of any type
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  image: any;
 }
 
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
+const PostItem = ({ item }: { item: Post }) => {
+  const [modalVisible, setModalVisible] = useState(false);
+
+  return (
+    <View className="p-4 m-2 bg-[#1A4782] border border-white rounded-lg">
+      <TouchableOpacity onPress={() => setModalVisible(true)}>
+        <Image
+          source={item.image}
+          className="w-full h-40 rounded-lg" // Using nativewind for styling
+          resizeMode="cover"
+        />
+      </TouchableOpacity>
+      <Text className="text-xl font-heebo-bold text-white mt-2">
+        {item.title}
+      </Text>
+      <Text className="mt-2 text-white">{item.content}</Text>
+
+      {/* Modal for full-screen zoomable image */}
+      <Modal visible={modalVisible} transparent={true} animationType="fade">
+        <View className="flex-1 bg-black">
+          {/* Close button */}
+          <TouchableOpacity
+            onPress={() => setModalVisible(false)}
+            className="absolute top-10 right-5 z-10"
+          >
+            <Text className="text-white text-3xl">X</Text>
+          </TouchableOpacity>
+
+          {/* ScrollView with pinch-to-zoom functionality */}
+          <ScrollView
+            maximumZoomScale={3}
+            minimumZoomScale={1}
+            contentContainerStyle={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+            }}
+          >
+            <Image
+              source={item.image}
+              style={{
+                width: "100%",
+                height: "100%",
+              }}
+              resizeMode="contain"
+            />
+          </ScrollView>
+        </View>
+      </Modal>
+    </View>
+  );
+};
+
+export default function Index() {
+  // Array of posts with realistic content and local image paths
+  const posts: Post[] = [
+    {
+      id: "1",
+      title: "A Journey Through the Mountains",
+      content:
+        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean et purus vitae sem congue blandit.",
+      image: require("../../assets/images/mountain.png"),
+    },
+    {
+      id: "2",
+      title: "Discovering the City Life",
+      content:
+        "Suspendisse potenti. Nulla facilisi. Explore the vibrant streets and hidden corners of the city.",
+      image: require("../../assets/images/city.png"),
+    },
+    {
+      id: "3",
+      title: "The Enchanted Forest",
+      content:
+        "Curabitur ut eros felis. Wander through the mystical forest where nature amazes at every turn.",
+      image: require("../../assets/images/forest.png"),
+    },
+    {
+      id: "4",
+      title: "A Night at the Party",
+      content:
+        "Duis aute irure dolor in reprehenderit. Experience the lively atmosphere and unforgettable moments at the party.",
+      image: require("../../assets/images/party.png"),
+    },
+  ];
+
+  return (
+    <SafeAreaView className="flex-1 bg-white">
+      <FlatList<Post>
+        data={posts}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <PostItem item={item} />}
+        ListHeaderComponent={
+          <Text className="text-3xl font-heebo-bold text-center mt-5 text-[#1A4782]">
+            ברוכים הבאים לאפליקציה שלנו!
+          </Text>
+        }
+        contentContainerStyle={{ paddingBottom: 120 }}
+      />
+    </SafeAreaView>
+  );
+}

@@ -1,39 +1,35 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/useColorScheme';
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+import { Stack, Slot, SplashScreen } from "expo-router";
+import { useFonts } from "expo-font";
+import { useEffect } from "react";
+import "./global.css";
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
   const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
+    // Heebo fonts
+    "Heebo-Thin": require("../assets/fonts/Heebo-Thin.ttf"),
+    "Heebo-ExtraLight": require("../assets/fonts/Heebo-ExtraLight.ttf"),
+    "Heebo-Light": require("../assets/fonts/Heebo-Light.ttf"),
+    "Heebo-Regular": require("../assets/fonts/Heebo-Regular.ttf"),
+    "Heebo-Medium": require("../assets/fonts/Heebo-Medium.ttf"),
+    "Heebo-SemiBold": require("../assets/fonts/Heebo-SemiBold.ttf"),
+    "Heebo-Bold": require("../assets/fonts/Heebo-Bold.ttf"),
+    "Heebo-ExtraBold": require("../assets/fonts/Heebo-ExtraBold.ttf"),
+    "Heebo-Black": require("../assets/fonts/Heebo-Black.ttf"),
+    // Tahoma
+    Tahoma: require("../assets/fonts/tahoma.ttf"),
   });
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
+    if (loaded) SplashScreen.hideAsync();
   }, [loaded]);
 
-  if (!loaded) {
-    return null;
-  }
+  if (!loaded) return null;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="+not-found" />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <Stack>
+      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
+      <Slot />
+    </Stack>
   );
 }
