@@ -1,160 +1,108 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   Image,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
-import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
+import { auth } from './FirebaseConfig'; // Adjust the path as necessary
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+} from 'firebase/auth';
 
 export default function RegisterScreen() {
-  // State for form inputs
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
-  // Function to handle registration
+  // Redirect if already signed in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) router.replace('/');
+    });
+    return unsubscribe;
+  }, []);
+
   const handleRegister = () => {
-    // Add your registration logic here
-    console.log({ firstName, lastName, email, password });
-    
-    // Navigate to home screen after registration
-    router.replace('/');
+    setError('');
+    createUserWithEmailAndPassword(auth, email.trim(), password)
+      .then(() => {
+        // Optionally update user profile with firstName/lastName via updateProfile
+        router.replace('/');
+      })
+      .catch((err) => setError(err.message));
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.formContainer}>
-            {/* Logo */}
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+          <View className="m-5 p-4 border border-gray-300 rounded-lg items-center">
             <Image
               source={require('../assets/icons/logoIcon.png')}
-              style={styles.logo}
+              className="w-24 h-24 mb-3"
               resizeMode="contain"
             />
             
-            {/* Hebrew Text below logo */}
-            <Text style={styles.titleHebrew}>עמותת סחלב</Text>
-            <Text style={styles.subtitleHebrew}>לאזרח הותיק בקהילה</Text>
-            
-            {/* Form Inputs */}
-            <View style={styles.inputContainer}>
+
+            <View className="w-full mb-4">
               <TextInput
-                style={styles.input}
-                placeholder="first name"
+                className="w-full bg-gray-100 rounded-full px-4 py-3 mb-3 text-base"
+                placeholder="First Name"
                 value={firstName}
                 onChangeText={setFirstName}
               />
-              
               <TextInput
-                style={styles.input}
-                placeholder="last name"
+                className="w-full bg-gray-100 rounded-full px-4 py-3 mb-3 text-base"
+                placeholder="Last Name"
                 value={lastName}
                 onChangeText={setLastName}
               />
-              
               <TextInput
-                style={styles.input}
-                placeholder="email"
+                className="w-full bg-gray-100 rounded-full px-4 py-3 mb-3 text-base"
+                placeholder="Email"
                 value={email}
-                onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                onChangeText={setEmail}
               />
-              
               <TextInput
-                style={styles.input}
-                placeholder="password"
+                className="w-full bg-gray-100 rounded-full px-4 py-3 text-base"
+                placeholder="Password"
+                secureTextEntry
                 value={password}
                 onChangeText={setPassword}
-                secureTextEntry
               />
             </View>
-            
-            {/* Register Button */}
-            <TouchableOpacity 
-              style={styles.registerButton}
+
+            {error ? (
+              <Text className="text-red-500 mb-3 text-center">{error}</Text>
+            ) : null}
+
+            <TouchableOpacity
               onPress={handleRegister}
+              className="w-full bg-blue-900 rounded-full py-3 mb-3 items-center"
             >
-              <Text style={styles.registerButtonText}>להירשם</Text>
+              <Text className="text-white text-lg font-Heebo-Bold">להירשם</Text>
             </TouchableOpacity>
+
+          
+           
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  formContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    margin: 20,
-    borderRadius: 8,
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 10,
-  },
-  titleHebrew: {
-    fontFamily: 'Heebo-Bold',
-    fontSize: 24,
-    textAlign: 'center',
-    color: '#000',
-  },
-  subtitleHebrew: {
-    fontFamily: 'Heebo-Regular',
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 30,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  input: {
-    width: '100%',
-    backgroundColor: '#f0e6e6',
-    borderRadius: 25,
-    padding: 15,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  registerButton: {
-    width: '100%',
-    backgroundColor: '#1A4782', // Using your app's primary color
-    borderRadius: 25,
-    padding: 15,
-    alignItems: 'center',
-  },
-  registerButtonText: {
-    fontFamily: 'Heebo-Bold',
-    color: 'white',
-    fontSize: 18,
-  },
-});

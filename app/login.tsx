@@ -1,3 +1,4 @@
+// app/login.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -5,78 +6,87 @@ import {
   TextInput,
   TouchableOpacity,
   Image,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from 'react-native';
-import { Link, router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Link, router } from 'expo-router';
+
+// ← Here’s the correct relative path:
+import { auth } from './FirebaseConfig';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('');
+  const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError]       = useState<string | null>(null);
 
   const handleLogin = () => {
-    // Add your login logic here
-    console.log({ email, password });
-    
-    // Navigate to home screen after login
-    router.replace('/');
+    setError(null);
+    signInWithEmailAndPassword(auth, email.trim(), password)
+      .then(() => {
+        // this will load app/(tabs)/index.tsx
+          router.replace('/(tabs)');
+      })
+      .catch(err => setError(err.message));
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        className="flex-1"
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
-          <View style={styles.formContainer}>
-            {/* Logo */}
+        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }}>
+          <View className="mx-5 p-6 bg-white border border-gray-200 rounded-xl shadow-md">
             <Image
               source={require('../assets/icons/logoIcon.png')}
-              style={styles.logo}
+              className="w-28 h-28 mx-auto mb-6"
               resizeMode="contain"
             />
-            
-            {/* Hebrew Text below logo */}
-            <Text style={styles.subtitleHebrew}>לאזרח הותיק בקהילה</Text>
-            
-            {/* Form Inputs */}
-            <View style={styles.inputContainer}>
+
+
+            <View className="space-y-4">
               <TextInput
-                style={styles.input}
-                placeholder="email"
+                className="w-full bg-gray-100 rounded-full px-5 py-3 text-base font-Heebo-Regular"
+                placeholder="Email"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                placeholderTextColor="#9CA3AF"
               />
-              
+
               <TextInput
-                style={styles.input}
-                placeholder="password"
+                className="w-full bg-gray-100 rounded-full px-5 py-3 text-base font-Heebo-Regular"
+                placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
+                placeholderTextColor="#9CA3AF"
               />
             </View>
-            
-            {/* Login Button */}
-            <TouchableOpacity 
-              style={styles.loginButton}
+
+            {error ? (
+              <Text className="mt-4 text-center text-red-500 font-Heebo-Regular">
+                {error}
+              </Text>
+            ) : null}
+
+            <TouchableOpacity
               onPress={handleLogin}
+              className="mt-6 bg-blue-900 rounded-full px-6 py-3 items-center"
             >
-              <Text style={styles.loginButtonText}>התחברות</Text>
+              <Text className="text-white text-lg font-Heebo-Bold">התחברות</Text>
             </TouchableOpacity>
-            
-            {/* Registration Link */}
-            <View style={styles.registerContainer}>
-              <Text style={styles.registerText}>אין לך חשבון? </Text>
+
+            <View className="flex-row justify-center mt-4">
               <Link href="/register" asChild>
                 <TouchableOpacity>
-                  <Text style={styles.registerLink}>הירשם עכשיו</Text>
+                  <Text className="text-blue-900 font-Heebo-Bold text-base">
+                  להרשמה
+                  </Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -86,77 +96,3 @@ export default function LoginScreen() {
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  formContainer: {
-    margin: 20,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 10,
-  },
-  titleHebrew: {
-    fontFamily: 'Heebo-Bold',
-    fontSize: 24,
-    textAlign: 'center',
-    color: '#000',
-  },
-  subtitleHebrew: {
-    fontFamily: 'Heebo-Regular',
-    fontSize: 16,
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 30,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 20,
-  },
-  input: {
-    width: '100%',
-    backgroundColor: '#f0e6e6',
-    borderRadius: 25,
-    padding: 15,
-    marginBottom: 15,
-    fontSize: 16,
-  },
-  loginButton: {
-    width: '100%',
-    backgroundColor: '#1A4782',
-    borderRadius: 25,
-    padding: 15,
-    alignItems: 'center',
-  },
-  loginButtonText: {
-    fontFamily: 'Heebo-Bold',
-    color: 'white',
-    fontSize: 18,
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  registerText: {
-    fontFamily: 'Heebo-Regular',
-    fontSize: 14,
-  },
-  registerLink: {
-    fontFamily: 'Heebo-Bold',
-    fontSize: 14,
-    color: '#1A4782',
-  },
-});
