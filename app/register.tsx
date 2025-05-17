@@ -13,11 +13,12 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
-import { auth } from './FirebaseConfig';
+import { auth, db } from './FirebaseConfig';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
 } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
@@ -66,11 +67,50 @@ export default function RegisterScreen() {
     ]).start();
   }, []);
 
-  const handleRegister = () => {
+  // Combined registration function with Firestore logic
+  const handleRegister = async () => {
     setError(null);
-    createUserWithEmailAndPassword(auth, email.trim(), password)
-      .then(() => router.replace('/(tabs)'))
-      .catch(err => setError(err.message));
+    
+    // Validate input fields
+    if (!firstName || !lastName || !email || !password) {
+      setError('All fields are required');
+      return;
+    }
+    
+    try {
+      console.log('Starting registration process');
+      
+      // Create authentication user
+      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const user = userCredential.user;
+      console.log('Authentication successful. User ID:', user.uid);
+      
+      // Create user data object
+      const userData = {
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
+        role: "user",
+        createdAt: new Date()
+      };
+      console.log('User data to save:', userData);
+      
+      // Save to Firestore
+      const userDocRef = doc(db, "users", user.uid);
+      console.log('Attempting to write to Firestore, path:', `users/${user.uid}`);
+      
+      // Use await to ensure the write completes
+      await setDoc(userDocRef, userData);
+      
+      console.log('Firestore write successful');
+      
+      // Navigate after confirming the write was successful
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      if (err.code) console.error('Error code:', err.code);
+      setError(err.message || 'Registration failed');
+    }
   };
 
   // helper for interpolated translateY
@@ -197,8 +237,6 @@ export default function RegisterScreen() {
                 </Text>
               </TouchableOpacity>
             </Animated.View>
-
-           
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
