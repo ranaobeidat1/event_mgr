@@ -13,7 +13,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db, auth } from './FirebaseConfig';
-import { getUser } from './utils/firestoreUtils';
+import { getUser, UserData } from './utils/firestoreUtils';
 
 interface RegistrationData {
   id: string;
@@ -45,7 +45,7 @@ const RegistrationsList = () => {
       }
 
       try {
-        const userData = await getUser(user.uid);
+        const userData = await getUser(user.uid) as UserData | null;
         if (userData?.role !== 'admin') {
           Alert.alert('גישה נדחתה', 'רק מנהלים רשאים לצפות בדף זה');
           router.back();
@@ -70,7 +70,7 @@ const RegistrationsList = () => {
 
           // Get user details for each registration
           if (registration.userId) {
-            const userDetails = await getUser(registration.userId);
+            const userDetails = await getUser(registration.userId) as UserData | null;
             registration.userData = {
               firstName: userDetails?.firstName || '',
               lastName: userDetails?.lastName || '',
@@ -144,9 +144,27 @@ const RegistrationsList = () => {
                 {/* Registrations rows */}
                 {registrations.map((registration, index) => {
                   // Format date if available
-                  const date = registration.registrationDate?.toDate
-                    ? registration.registrationDate.toDate().toLocaleDateString('he-IL')
-                    : 'לא זמין';
+                  let date = 'לא זמין';
+                  if (registration.registrationDate) {
+                    try {
+                      if (registration.registrationDate.toDate) {
+                        date = registration.registrationDate.toDate().toLocaleDateString('he-IL', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit'
+                        });
+                      } else if (registration.registrationDate instanceof Date) {
+                        date = registration.registrationDate.toLocaleDateString('he-IL', {
+                          year: 'numeric',
+                          month: '2-digit',
+                          day: '2-digit'
+                        });
+                      }
+                    } catch (error) {
+                      console.error('Error formatting date:', error);
+                      date = 'תאריך לא תקין';
+                    }
+                  }
 
                   return (
                     <View 

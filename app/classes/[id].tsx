@@ -10,9 +10,10 @@ import {
   Alert 
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp,writeBatch } from 'firebase/firestore';
 import { db, auth } from '../FirebaseConfig';
 import { getUser } from '../utils/firestoreUtils';
+
 
 interface UserData {
   id: string;
@@ -91,6 +92,42 @@ const ClassDetails = () => {
 
     fetchCourseData();
   }, [id]);
+  // Add this function to the component
+  const handleDeleteClass = async () => {
+    try {
+      setLoading(true);
+      
+      // Delete all registrations for this class
+      const registrationsRef = collection(db, "Registrations");
+      const q = query(registrationsRef, where("courseId", "==", id));
+      const querySnapshot = await getDocs(q);
+      
+      const batch = writeBatch(db);
+      
+      // Add all registration documents to batch for deletion
+      querySnapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      // Delete the class document
+      const courseRef = doc(db, "courses", id as string);
+      batch.delete(courseRef);
+      
+      // Commit the batch
+      await batch.commit();
+      
+      Alert.alert("הצלחה", "החוג נמחק בהצלחה", [
+        {
+          text: "אישור",
+          onPress: () => router.replace('/(tabs)/classes')
+        }
+      ]);
+    } catch (error) {
+      console.error("Error deleting class:", error);
+      Alert.alert("שגיאה", "אירעה שגיאה במחיקת החוג");
+      setLoading(false);
+    }
+  };
 
   const handleRegistration = async () => {
     if (isAdmin) {
@@ -203,18 +240,46 @@ const ClassDetails = () => {
         
         {/* For admin users, show button to view registered users */}
         {isAdmin && (
-          <TouchableOpacity 
-            style={styles.adminButton} 
-            onPress={() => router.push({
-              pathname: '../registrations-list',
-              params: { courseId: id, courseName: courseData?.name }
-            })}
-          >
-            <Text style={styles.registerButtonText}>
-              צפה ברשימת הנרשמים
-            </Text>
-          </TouchableOpacity>
-        )}
+  <>
+    <TouchableOpacity 
+      style={styles.adminButton} 
+      onPress={() => router.push({
+        pathname: '../registrations-list',
+        params: { courseId: id, courseName: courseData?.name }
+      })}
+    >
+      <Text style={styles.registerButtonText}>
+        צפה ברשימת הנרשמים
+      </Text>
+    </TouchableOpacity>
+    
+    {/* Delete class button */}
+    <TouchableOpacity 
+      style={styles.deleteButton} 
+      onPress={() => {
+        Alert.alert(
+          "מחיקת חוג",
+          "האם אתה בטוח שברצונך למחוק חוג זה? פעולה זו אינה ניתנת לביטול ותמחק את כל ההרשמות הקשורות.",
+          [
+            {
+              text: "ביטול",
+              style: "cancel"
+            },
+            { 
+              text: "מחק", 
+              style: "destructive",
+              onPress: handleDeleteClass
+            }
+          ]
+        );
+      }}
+    >
+      <Text style={styles.registerButtonText}>
+        מחק חוג
+      </Text>
+    </TouchableOpacity>
+  </>
+)}
       </ScrollView>
     </SafeAreaView>
   );
@@ -305,6 +370,14 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontFamily: 'Heebo-Bold',
   },
+  deleteButton: {
+    backgroundColor: '#F44336',
+    borderRadius: 30,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 12,
+  },
 });
+
 
 export default ClassDetails;
