@@ -12,13 +12,22 @@ import {
   } from 'firebase/firestore';
   import { db } from '../FirebaseConfig';
   
+  // User interface to define the structure
+  export interface UserData {
+    id: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    role?: string;
+  }
+
   // Get a single user by ID
-  export const getUser = async (userId: string) => {
+  export const getUser = async (userId: string): Promise<UserData | null> => {
     const docRef = doc(db, "users", userId);
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() };
+      return { id: docSnap.id, ...docSnap.data() } as UserData;
     } else {
       return null;
     }

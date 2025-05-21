@@ -1,3 +1,4 @@
+// Update your app/_layout.tsx
 import { Stack, Slot, SplashScreen } from "expo-router";
 import { useFonts } from "expo-font";
 import { useEffect } from "react";
@@ -31,6 +32,8 @@ export default function RootLayout() {
       <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
       <Stack.Screen name="register" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
+      <Stack.Screen name="add-class" options={{ headerShown: false }} />
+      <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
       <Slot />
     </Stack>
   );
