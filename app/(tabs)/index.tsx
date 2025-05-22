@@ -1,122 +1,215 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FlatList,
-  Modal,
   TouchableOpacity,
   View,
   Text,
   SafeAreaView,
   Image,
-  ScrollView,
+  Dimensions,
 } from "react-native";
-import { Link } from "expo-router";
+import { router } from "expo-router";
+import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import { db, auth } from "../FirebaseConfig";
+import { getUser } from "../utils/firestoreUtils";
 
-// Define the Post type with an image property of any type
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 interface Post {
   id: string;
   title: string;
   content: string;
-  image: any;
+  images?: string[];
+  createdAt?: any;
+}
+
+interface UserData {
+  id: string;
+  role?: string;
 }
 
 const PostItem = ({ item }: { item: Post }) => {
-  const [modalVisible, setModalVisible] = useState(false);
+  const images = item.images || [];
+  const total = images.length;
 
-  return (
-    <View className="p-4 m-2 bg-[#1A4782] border border-white rounded-lg">
-      <TouchableOpacity onPress={() => setModalVisible(true)}>
+  // Helper to navigate to detail
+  const goToDetail = () => {
+    router.push(`./posts/${item.id}`);
+  };
+
+  // Single image
+  if (total === 1) {
+    return (
+      <TouchableOpacity onPress={goToDetail} className="m-2 overflow-hidden bg-white rounded-lg items-center">
         <Image
-          source={item.image}
-          className="w-full h-40 rounded-lg" // Using nativewind for styling
+          source={{ uri: images[0] }}
+          className="w-[500px] h-[500px]"
           resizeMode="cover"
         />
-      </TouchableOpacity>
-      <Text className="text-xl font-heebo-bold text-white mt-2">
-        {item.title}
-      </Text>
-      <Text className="mt-2 text-white">{item.content}</Text>
-
-      {/* Modal for full-screen zoomable image */}
-      <Modal visible={modalVisible} transparent={true} animationType="fade">
-        <View className="flex-1 bg-black">
-          {/* Close button */}
-          <TouchableOpacity
-            onPress={() => setModalVisible(false)}
-            className="absolute top-10 right-5 z-10"
-          >
-            <Text className="text-white text-3xl">X</Text>
-          </TouchableOpacity>
-
-          {/* ScrollView with pinch-to-zoom functionality */}
-          <ScrollView
-            maximumZoomScale={3}
-            minimumZoomScale={1}
-            contentContainerStyle={{
-              flex: 1,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <Image
-              source={item.image}
-              style={{
-                width: "100%",
-                height: "100%",
-              }}
-              resizeMode="contain"
-            />
-          </ScrollView>
+        <View className="p-4 bg-[#1A4782] w-full">
+          <Text className="text-xl font-heebo-bold text-white">{item.title}</Text>
+          <Text className="mt-1 text-white" numberOfLines={2}>{item.content}</Text>
         </View>
-      </Modal>
-    </View>
-  );
+      </TouchableOpacity>
+    );
+  }
+
+  // Two images
+  if (total === 2) {
+    return (
+      <View className="m-2 overflow-hidden bg-white rounded-lg">
+        <View className="flex-row justify-center items-center">
+          {images.map((uri, idx) => (
+            <TouchableOpacity key={idx} onPress={goToDetail}>
+              <Image
+                source={{ uri }}
+                className="w-[500px] h-[500px] mx-1"
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity onPress={goToDetail} className="absolute bottom-0 left-0 p-4 bg-[#1A4782] w-full">
+          <Text className="text-xl font-heebo-bold text-white">{item.title}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Three images
+  if (total === 3) {
+    return (
+      <TouchableOpacity onPress={goToDetail} className="m-2 rounded-lg overflow-hidden bg-white">
+        <View style={{ flexDirection: "row", width: SCREEN_WIDTH, height: SCREEN_WIDTH / 2 }}>
+          <Image
+            source={{ uri: images[0] }}
+            style={{ width: SCREEN_WIDTH / 2, height: SCREEN_WIDTH / 2 }}
+            resizeMode="cover"
+          />
+          <View style={{ width: SCREEN_WIDTH / 2 }}>
+            {[images[1], images[2]].map((uri, idx) => (
+              <Image
+                key={idx}
+                source={{ uri }}
+                style={{ width: SCREEN_WIDTH / 2, height: SCREEN_WIDTH / 4 }}
+                resizeMode="cover"
+              />
+            ))}
+          </View>
+        </View>
+        <View className="p-4 bg-[#1A4782] w-full">
+          <Text className="text-xl font-heebo-bold text-white">{item.title}</Text>
+          <Text className="mt-1 text-white" numberOfLines={2}>{item.content}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // Exactly four images: no blur
+  if (total === 4) {
+    const cellSize = SCREEN_WIDTH / 2;
+    return (
+      <TouchableOpacity onPress={goToDetail} className="m-2 overflow-hidden bg-white rounded-lg">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", width: SCREEN_WIDTH }}>
+          {images.slice(0, 4).map((uri, idx) => (
+            <Image
+              key={idx}
+              source={{ uri }}
+              style={{ width: cellSize, height: cellSize }}
+              resizeMode="cover"
+            />
+          ))}
+        </View>
+        <View className="p-4 bg-[#1A4782] w-full">
+          <Text className="text-xl font-heebo-bold text-white">{item.title}</Text>
+          <Text className="mt-1 text-white" numberOfLines={2}>{item.content}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // Five or more images: blur 4th + overlay
+  if (total > 4) {
+    const cellSize = SCREEN_WIDTH / 2;
+    const extra = total - 4;
+    return (
+      <TouchableOpacity onPress={goToDetail} className="m-2 overflow-hidden bg-white rounded-lg">
+        <View style={{ flexDirection: "row", flexWrap: "wrap", width: SCREEN_WIDTH }}>
+          {images.slice(0, 4).map((uri, idx) => (
+            <View key={idx} style={{ width: cellSize, height: cellSize }}>
+              <Image
+                source={{ uri }}
+                style={{ width: "100%", height: "100%" }}
+                resizeMode="cover"
+                blurRadius={idx === 3 ? 10 : 0}
+              />
+              {idx === 3 && (
+                <View className="absolute inset-0 justify-center items-center">
+                  <Text className="text-white text-xl font-heeboBold bg-black bg-opacity-50 px-2 py-1">
+                    +{extra}
+                  </Text>
+                </View>
+              )}
+            </View>
+          ))}
+        </View>
+        <View className="p-4 bg-[#1A4782] w-full">
+          <Text className="text-xl font-heebo-bold text-white">{item.title}</Text>
+          <Text className="mt-1 text-white" numberOfLines={2}>{item.content}</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  return null;
 };
 
-export default function Index() {
-  // Array of posts with realistic content and local image paths
-  const posts: Post[] = [
-    {
-      id: "1",
-      title: "A Journey Through the Mountains",
-      content:
-        "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean et purus vitae sem congue blandit.",
-      image: require("../../assets/images/mountain.png"),
-    },
-    {
-      id: "2",
-      title: "Discovering the City Life",
-      content:
-        "Suspendisse potenti. Nulla facilisi. Explore the vibrant streets and hidden corners of the city.",
-      image: require("../../assets/images/city.png"),
-    },
-    {
-      id: "3",
-      title: "The Enchanted Forest",
-      content:
-        "Curabitur ut eros felis. Wander through the mystical forest where nature amazes at every turn.",
-      image: require("../../assets/images/forest.png"),
-    },
-    {
-      id: "4",
-      title: "A Night at the Party",
-      content:
-        "Duis aute irure dolor in reprehenderit. Experience the lively atmosphere and unforgettable moments at the party.",
-      image: require("../../assets/images/party.png"),
-    },
-  ];
+export default function PostsScreen() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const postsQuery = query(collection(db, "posts"), orderBy("createdAt", "desc"));
+    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
+      const list: Post[] = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Post, "id">),
+      }));
+      setPosts(list);
+    });
+
+    (async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const userData = (await getUser(user.uid)) as UserData;
+        setIsAdmin(userData?.role === "admin");
+      }
+    })();
+
+    return unsubscribe;
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-white">
+      {isAdmin && (
+        <TouchableOpacity
+          className="absolute top-4 right-4 bg-yellow-400 p-4 rounded-full shadow-lg z-10"
+          onPress={() => router.push("/posts/create")}
+        >
+          <Text className="text-black text-2xl font-heeboBold">+</Text>
+        </TouchableOpacity>
+      )}
+
       <FlatList<Post>
         data={posts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <PostItem item={item} />}
-        ListHeaderComponent={
+        ListHeaderComponent={() => (
           <Text className="text-3xl font-heebo-bold text-center mt-5 text-[#1A4782]">
             ברוכים הבאים לאפליקציה שלנו!
           </Text>
-        }
-        contentContainerStyle={{ paddingBottom: 120 }}
+        )}
+        contentContainerStyle={{ paddingBottom: 120, paddingTop: isAdmin ? 60 : 20 }}
       />
     </SafeAreaView>
   );
