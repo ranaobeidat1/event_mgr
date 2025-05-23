@@ -1,4 +1,3 @@
-// app/posts/create.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -11,9 +10,13 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { db, auth } from '../FirebaseConfig';
+import { db, auth, storage } from '../FirebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getUser } from '../utils/firestoreUtils';
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from 'firebase/storage';
 
 const CreatePostScreen = () => {
   const [title, setTitle] = useState('');
@@ -44,6 +47,21 @@ const CreatePostScreen = () => {
     setImages(prev => prev.filter((_, i) => i !== idx));
   };
 
+  // Upload images to Firebase Storage and return URLs
+  const uploadImagesAndGetUrls = async (uris: string[]) => {
+    const uploadPromises = uris.map(async (uri, idx) => {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const user = auth.currentUser!;
+      const timestamp = Date.now();
+      const imageRef = storageRef(storage, `posts/${user.uid}/${timestamp}_${idx}`);
+      await uploadBytes(imageRef, blob);
+      const downloadUrl = await getDownloadURL(imageRef);
+      return downloadUrl;
+    });
+    return Promise.all(uploadPromises);
+  };
+
   // Submit new post
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {
@@ -55,18 +73,24 @@ const CreatePostScreen = () => {
       const user = auth.currentUser;
       if (!user) throw new Error('משתמש לא מזוהה');
 
+      const imageUrls = images.length > 0 ? await uploadImagesAndGetUrls(images) : [];
+
       await addDoc(collection(db, 'posts'), {
         title,
         content,
-        images,
+        images: imageUrls,
         authorId: user.uid,
         createdAt: serverTimestamp(),
       });
 
       Alert.alert('הצלחה', 'הפוסט נוצר בהצלחה', [
-        { text: 'אישור', onPress: () => router.push('/(tabs)') }
+        { text: 'אישור', onPress: () => router.replace('/(tabs)') }
       ]);
+      setTitle('');
+      setContent('');
+      setImages([]);
     } catch (error) {
+      console.error(error);
       Alert.alert('שגיאה', 'אירעה שגיאה ביצירת הפוסט');
     } finally {
       setSaving(false);
