@@ -21,6 +21,7 @@ const CreatePostScreen = () => {
   const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Pick multiple images
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -33,12 +34,17 @@ const CreatePostScreen = () => {
       quality: 0.7,
     });
     if (!result.canceled) {
-      // map over assets array
       const uris = result.assets.map((asset: ImagePicker.ImagePickerAsset) => asset.uri);
       setImages(prev => [...prev, ...uris]);
     }
   };
 
+  // Remove selected image by index
+  const removeImage = (idx: number) => {
+    setImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Submit new post
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {
       Alert.alert('שגיאה', 'יש למלא כותרת ותוכן');
@@ -92,12 +98,19 @@ const CreatePostScreen = () => {
       {images.length > 0 && (
         <ScrollView horizontal className="mb-4 space-x-2">
           {images.map((uri, i) => (
-            <Image
-              key={i}
-              source={{ uri }}
-              className="w-24 h-24 rounded"
-              resizeMode="cover"
-            />
+            <View key={i} className="relative">
+              <Image
+                source={{ uri }}
+                className="w-24 h-24 rounded"
+                resizeMode="cover"
+              />
+              <TouchableOpacity
+                onPress={() => removeImage(i)}
+                className="absolute top-0 right-0 bg-red-600 p-1 rounded-full"
+              >
+                <Text className="text-white text-xs">×</Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       )}
@@ -105,6 +118,7 @@ const CreatePostScreen = () => {
       <TouchableOpacity
         className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
         onPress={pickImages}
+        disabled={saving}
       >
         <Text className="text-white text-lg font-heeboBold">
           הוסף תמונות
