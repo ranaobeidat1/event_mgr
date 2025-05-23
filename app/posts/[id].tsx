@@ -1,4 +1,3 @@
-// app/posts/[id].tsx
 export const screenOptions = {
   headerShown: false,
 };
@@ -21,13 +20,23 @@ import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../FirebaseConfig';
 import { getUser } from '../utils/firestoreUtils';
 
-interface UserData { id: string; role?: string }
-interface PostData { title: string; content: string; images?: string[]; authorId: string; createdAt?: any }
+interface UserData { id: string; role?: string; }
+interface PostData { title: string; content: string; images?: string[]; authorId: string; createdAt?: any; }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PostDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
+
+  // Don’t fetch until the router gives us an id
+  if (!id) {
+    return (
+      <SafeAreaView className="flex-1 bg-white justify-center items-center">
+        <ActivityIndicator size="large" color="#1A4782" />
+      </SafeAreaView>
+    );
+  }
+
   const [postData, setPostData] = useState<PostData | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -76,7 +85,9 @@ export default function PostDetails() {
           try {
             setDeleting(true);
             await deleteDoc(doc(db, 'posts', id));
-            Alert.alert('נמחק', '', [{ text: 'אישור', onPress: () => router.replace('/(tabs)') }]);
+            Alert.alert('נמחק', '', [
+              { text: 'אישור', onPress: () => router.replace('/(tabs)') }
+            ]);
           } catch {
             Alert.alert('שגיאה', 'אירעה שגיאה במחיקה');
           } finally {
@@ -136,6 +147,27 @@ export default function PostDetails() {
 
       <SafeAreaView className="flex-1 bg-white px-5">
         <ScrollView className="pb-10">
+          {/* Edit & Delete Buttons */}
+          {isAdmin && (
+            <View className="flex-row justify-end space-x-2 mb-4">
+              <TouchableOpacity
+                onPress={() => router.push(`/posts/${id}/edit`)}
+                className="bg-blue-600 py-2 px-4 rounded-lg"
+              >
+                <Text className="text-white font-bold">ערוך</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={confirmDelete}
+                disabled={deleting}
+                className={`${deleting ? 'bg-red-300' : 'bg-red-600'} py-2 px-4 rounded-lg`}
+              >
+                <Text className="text-white font-bold">
+                  {deleting ? 'מוחק…' : 'מחק'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
           {/* Title */}
           <Text className="text-3xl font-bold text-[#1A4782] text-center mb-6">
             {postData.title}
@@ -156,19 +188,6 @@ export default function PostDetails() {
               />
             </TouchableOpacity>
           ))}
-
-          {/* Delete */}
-          {isAdmin && (
-            <TouchableOpacity
-              onPress={confirmDelete}
-              disabled={deleting}
-              className={`${deleting ? 'bg-red-300' : 'bg-red-600'} py-3 rounded-full items-center`}
-            >
-              <Text className="text-white text-lg font-bold">
-                {deleting ? 'מוחק…' : 'מחק פוסט'}
-              </Text>
-            </TouchableOpacity>
-          )}
         </ScrollView>
       </SafeAreaView>
     </>
