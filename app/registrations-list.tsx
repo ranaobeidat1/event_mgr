@@ -21,6 +21,10 @@ interface RegistrationData {
   courseId: string;
   registrationDate: any;
   status: string;
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  email?: string;
   userData?: {
     firstName?: string;
     lastName?: string;
@@ -61,21 +65,24 @@ const RegistrationsList = () => {
 
         const registrationsData: RegistrationData[] = [];
         
-        // Process each registration and get the user details
+        // Process each registration
         for (const doc of querySnapshot.docs) {
           const registration = {
             id: doc.id,
             ...doc.data()
           } as RegistrationData;
-
-          // Get user details for each registration
-          if (registration.userId) {
-            const userDetails = await getUser(registration.userId) as UserData | null;
-            registration.userData = {
-              firstName: userDetails?.firstName || '',
-              lastName: userDetails?.lastName || '',
-              email: userDetails?.email || ''
-            };
+          
+          // If the registration doesn't have firstName/lastName/phoneNumber stored directly,
+          // try to get it from the user's profile (for backward compatibility)
+          if (!registration.firstName || !registration.lastName) {
+            if (registration.userId) {
+              const userDetails = await getUser(registration.userId) as UserData | null;
+              registration.userData = {
+                firstName: userDetails?.firstName || '',
+                lastName: userDetails?.lastName || '',
+                email: userDetails?.email || ''
+              };
+            }
           }
           
           registrationsData.push(registration);
@@ -136,35 +143,17 @@ const RegistrationsList = () => {
                 {/* Header row */}
                 <View style={styles.tableHeader}>
                   <Text style={[styles.headerCell, styles.nameCell]}>שם</Text>
+                  <Text style={[styles.headerCell, styles.phoneCell]}>טלפון</Text>
                   <Text style={[styles.headerCell, styles.emailCell]}>אימייל</Text>
-                  <Text style={[styles.headerCell, styles.dateCell]}>תאריך הרשמה</Text>
-                  <Text style={[styles.headerCell, styles.statusCell]}>סטטוס</Text>
                 </View>
 
                 {/* Registrations rows */}
                 {registrations.map((registration, index) => {
-                  // Format date if available
-                  let date = 'לא זמין';
-                  if (registration.registrationDate) {
-                    try {
-                      if (registration.registrationDate.toDate) {
-                        date = registration.registrationDate.toDate().toLocaleDateString('he-IL', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit'
-                        });
-                      } else if (registration.registrationDate instanceof Date) {
-                        date = registration.registrationDate.toLocaleDateString('he-IL', {
-                          year: 'numeric',
-                          month: '2-digit',
-                          day: '2-digit'
-                        });
-                      }
-                    } catch (error) {
-                      console.error('Error formatting date:', error);
-                      date = 'תאריך לא תקין';
-                    }
-                  }
+                  // Use firstName/lastName from registration if available, otherwise from userData
+                  const firstName = registration.firstName || registration.userData?.firstName || '';
+                  const lastName = registration.lastName || registration.userData?.lastName || '';
+                  const email = registration.email || registration.userData?.email || '';
+                  const phone = registration.phoneNumber || 'לא צוין';
 
                   return (
                     <View 
@@ -175,18 +164,13 @@ const RegistrationsList = () => {
                       ]}
                     >
                       <Text style={[styles.cell, styles.nameCell]}>
-                        {registration.userData?.firstName} {registration.userData?.lastName}
+                        {firstName} {lastName}
+                      </Text>
+                      <Text style={[styles.cell, styles.phoneCell]}>
+                        {phone}
                       </Text>
                       <Text style={[styles.cell, styles.emailCell]}>
-                        {registration.userData?.email}
-                      </Text>
-                      <Text style={[styles.cell, styles.dateCell]}>
-                        {date}
-                      </Text>
-                      <Text style={[styles.cell, styles.statusCell, 
-                        registration.status === 'active' ? styles.activeStatus : styles.inactiveStatus
-                      ]}>
-                        {registration.status === 'active' ? 'פעיל' : 'לא פעיל'}
+                        {email}
                       </Text>
                     </View>
                   );
@@ -295,22 +279,12 @@ const styles = StyleSheet.create({
   nameCell: {
     flex: 3,
   },
+  phoneCell: {
+    flex: 2,
+  },
   emailCell: {
     flex: 4,
   },
-  dateCell: {
-    flex: 2,
-  },
-  statusCell: {
-    flex: 1,
-    textAlign: 'center',
-  },
-  activeStatus: {
-    color: '#4CAF50',
-  },
-  inactiveStatus: {
-    color: '#F44336',
-  }
 });
 
 export default RegistrationsList;

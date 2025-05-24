@@ -62,6 +62,7 @@ export default function RootLayout() {
         <Stack.Screen name="posts/create" options={{ headerShown: false }} />
         <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="add-class" options={{ headerShown: false }} />
+        <Stack.Screen name="edit-class" options={{ headerShown: false }} />
         <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
         <Slot />
       </Stack>

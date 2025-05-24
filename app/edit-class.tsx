@@ -1,6 +1,6 @@
-// app/add-class.tsx
+// app/edit-class.tsx
 import * as ImagePicker from 'expo-image-picker';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -14,23 +14,35 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { auth, db, storage } from './FirebaseConfig';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, updateDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
-export default function AddClass() {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
-  const [schedule, setSchedule] = useState('');
-  const [maxCapacity, setMaxCapacity] = useState('');
-  const [localImageUris, setLocalImageUris] = useState<string[]>([]);
-  const [payment, setPayment] = useState('');
+export default function EditClass() {
+  const params = useLocalSearchParams();
+  const classId = params.id as string;
+  
+  // Initialize state with existing values
+  const [name, setName] = useState(params.name as string || '');
+  const [description, setDescription] = useState(params.description as string || '');
+  const [location, setLocation] = useState(params.location as string || '');
+  const [schedule, setSchedule] = useState(params.schedule as string || '');
+  const [maxCapacity, setMaxCapacity] = useState(params.maxCapacity?.toString() || '');
+  const [payment, setPayment] = useState(params.payment as string || '');
+  
+  // Parse existing images from JSON string
+  const existingImagesParam = params.existingImages as string || '[]';
+  const [existingImages, setExistingImages] = useState<string[]>(
+    JSON.parse(existingImagesParam)
+  );
+  const [newImageUris, setNewImageUris] = useState<string[]>([]);
+  const [deletedImages, setDeletedImages] = useState<string[]>([]);
+  
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Function to pick images
+  // Function to pick new images
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -44,34 +56,33 @@ export default function AddClass() {
     });
     if (!result.canceled) {
       const uris = result.assets.map((asset: ImagePicker.ImagePickerAsset) => asset.uri);
-      setLocalImageUris(prev => [...prev, ...uris]);
+      setNewImageUris(prev => [...prev, ...uris]);
     }
   };
 
-  // Function to remove an image
-  const removeImage = (index: number) => {
-    setLocalImageUris(prev => prev.filter((_, i) => i !== index));
+  // Function to remove an existing image
+  const removeExistingImage = (url: string, index: number) => {
+    setExistingImages(prev => prev.filter((_, i) => i !== index));
+    setDeletedImages(prev => [...prev, url]);
   };
 
-  // Function to upload images to Firebase Storage
+  // Function to remove a new image
+  const removeNewImage = (index: number) => {
+    setNewImageUris(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Function to upload new images to Firebase Storage
   const uploadImages = async (localUris: string[]): Promise<string[]> => {
     setUploadingImages(true);
     const uploadedUrls: string[] = [];
     
     try {
       for (const uri of localUris) {
-        // Create a unique filename
         const filename = `courses/${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-        
-        // Convert URI to blob
         const response = await fetch(uri);
         const blob = await response.blob();
-        
-        // Upload to Firebase Storage
         const storageRef = ref(storage, filename);
         const snapshot = await uploadBytes(storageRef, blob);
-        
-        // Get download URL
         const downloadUrl = await getDownloadURL(snapshot.ref);
         uploadedUrls.push(downloadUrl);
       }
@@ -85,6 +96,25 @@ export default function AddClass() {
     }
   };
 
+  // Function to delete images from Firebase Storage
+  const deleteImagesFromStorage = async (urls: string[]) => {
+    for (const url of urls) {
+      try {
+        // Extract the path from the URL
+        const decodedUrl = decodeURIComponent(url);
+        const startIndex = decodedUrl.indexOf('/o/') + 3;
+        const endIndex = decodedUrl.indexOf('?');
+        const filePath = decodedUrl.substring(startIndex, endIndex);
+        
+        const imageRef = ref(storage, filePath);
+        await deleteObject(imageRef);
+      } catch (error) {
+        console.error('Error deleting image:', error);
+        // Continue with other deletions even if one fails
+      }
+    }
+  };
+
   // Function to handle form submission
   const handleSubmit = async () => {
     // Validate fields
@@ -93,7 +123,6 @@ export default function AddClass() {
       return;
     }
 
-    // Validate max capacity is a number
     const parsedCapacity = parseInt(maxCapacity);
     if (isNaN(parsedCapacity) || parsedCapacity <= 0) {
       Alert.alert('שגיאה', 'מספר משתתפים מקסימלי חייב להיות מספר חיובי');
@@ -110,11 +139,11 @@ export default function AddClass() {
         return;
       }
 
-      // Upload images if any
-      let uploadedImageUrls: string[] = [];
-      if (localImageUris.length > 0) {
+      // Upload new images if any
+      let newUploadedUrls: string[] = [];
+      if (newImageUris.length > 0) {
         try {
-          uploadedImageUrls = await uploadImages(localImageUris);
+          newUploadedUrls = await uploadImages(newImageUris);
         } catch (error) {
           Alert.alert('שגיאה', 'אירעה שגיאה בהעלאת התמונות');
           setIsSubmitting(false);
@@ -122,30 +151,36 @@ export default function AddClass() {
         }
       }
 
-      // Add document to Firestore
-      const courseData = {
+      // Delete removed images from storage
+      if (deletedImages.length > 0) {
+        await deleteImagesFromStorage(deletedImages);
+      }
+
+      // Combine remaining existing images with new uploaded images
+      const finalImageUrls = [...existingImages, ...newUploadedUrls];
+
+      // Update document in Firestore
+      const courseRef = doc(db, 'courses', classId);
+      await updateDoc(courseRef, {
         name,
         description,
         location,
         schedule,
         maxCapacity: parsedCapacity,
-        imageUrl: uploadedImageUrls, // Array of Firebase Storage URLs
-        payment: payment || '', // Empty string if not provided
-        createdBy: user.uid,
-        createdAt: serverTimestamp(),
-      };
-
-      await addDoc(collection(db, 'courses'), courseData);
+        imageUrl: finalImageUrls,
+        payment: payment || '',
+        updatedAt: new Date(),
+      });
       
-      Alert.alert('הצלחה', 'החוג נוסף בהצלחה', [
+      Alert.alert('הצלחה', 'החוג עודכן בהצלחה', [
         { 
           text: 'אישור', 
-          onPress: () => router.replace('/(tabs)/classes')
+          onPress: () => router.back()
         }
       ]);
     } catch (error) {
-      console.error('Error adding class:', error);
-      Alert.alert('שגיאה', 'אירעה שגיאה בהוספת החוג. אנא נסה שוב מאוחר יותר.');
+      console.error('Error updating class:', error);
+      Alert.alert('שגיאה', 'אירעה שגיאה בעדכון החוג. אנא נסה שוב מאוחר יותר.');
     } finally {
       setIsSubmitting(false);
     }
@@ -166,7 +201,7 @@ export default function AddClass() {
           </TouchableOpacity>
 
           <Text className="text-3xl font-heebo-bold text-center mb-8 text-primary">
-            הוספת חוג חדש
+            עריכת חוג
           </Text>
 
           <View className="mb-6">
@@ -233,23 +268,13 @@ export default function AddClass() {
             />
           </View>
 
-          {/* Image picker button */}
-          <TouchableOpacity
-            className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
-            onPress={pickImages}
-          >
-            <Text className="text-white text-lg font-heebo-bold">
-              הוסף תמונות
-            </Text>
-          </TouchableOpacity>
-
-          {/* Image preview */}
-          {localImageUris.length > 0 && (
+          {/* Existing images */}
+          {existingImages.length > 0 && (
             <View className="mb-6">
-              <Text className="text-lg font-heebo-medium mb-2 text-right">תמונות שנבחרו:</Text>
+              <Text className="text-lg font-heebo-medium mb-2 text-right">תמונות קיימות:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                {localImageUris.map((uri, index) => (
-                  <View key={index} className="mr-2">
+                {existingImages.map((uri, index) => (
+                  <View key={`existing-${index}`} className="mr-2">
                     <Image
                       source={{ uri }}
                       className="w-24 h-24 rounded-lg"
@@ -257,7 +282,41 @@ export default function AddClass() {
                     />
                     <TouchableOpacity
                       className="absolute top-0 right-0 bg-red-500 rounded-full w-6 h-6 items-center justify-center"
-                      onPress={() => removeImage(index)}
+                      onPress={() => removeExistingImage(uri, index)}
+                    >
+                      <Text className="text-white text-xs">X</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Image picker button */}
+          <TouchableOpacity
+            className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
+            onPress={pickImages}
+          >
+            <Text className="text-white text-lg font-heebo-bold">
+              הוסף תמונות חדשות
+            </Text>
+          </TouchableOpacity>
+
+          {/* New images preview */}
+          {newImageUris.length > 0 && (
+            <View className="mb-6">
+              <Text className="text-lg font-heebo-medium mb-2 text-right">תמונות חדשות:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {newImageUris.map((uri, index) => (
+                  <View key={`new-${index}`} className="mr-2">
+                    <Image
+                      source={{ uri }}
+                      className="w-24 h-24 rounded-lg"
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      className="absolute top-0 right-0 bg-red-500 rounded-full w-6 h-6 items-center justify-center"
+                      onPress={() => removeNewImage(index)}
                     >
                       <Text className="text-white text-xs">X</Text>
                     </TouchableOpacity>
@@ -282,7 +341,7 @@ export default function AddClass() {
               </View>
             ) : (
               <Text className="text-white text-center text-xl font-heebo-bold">
-                {isSubmitting ? 'מוסיף חוג...' : 'הוסף חוג'}
+                {isSubmitting ? 'מעדכן חוג...' : 'עדכן חוג'}
               </Text>
             )}
           </TouchableOpacity>
