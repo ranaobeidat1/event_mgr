@@ -63,6 +63,7 @@ export default function RootLayout() {
         <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="add-class" options={{ headerShown: false }} />
         <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
+        <Stack.Screen name="alerts/create-alert" options={{ headerShown: false }} />
         <Slot />
       </Stack>
     </AuthContext.Provider>
