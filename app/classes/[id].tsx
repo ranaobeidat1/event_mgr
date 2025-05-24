@@ -425,7 +425,7 @@ const ClassDetails = () => {
             </View>
             
             <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>לוח זמנים</Text>
+              <Text style={styles.infoLabel}>ימים</Text>
               <Text style={styles.infoValue}>{courseData?.schedule}</Text>
             </View>
 
@@ -435,11 +435,11 @@ const ClassDetails = () => {
                 <Text style={styles.infoValue}>{courseData.payment}</Text>
               </View>
             )}
-            
+            {isAdmin && (
             <View style={styles.infoItem}>
               <Text style={styles.infoLabel}>מקומות</Text>
               <Text style={styles.infoValue}>{registrationsCount}/{courseData?.maxCapacity}</Text>
-            </View>
+            </View>)}
           </View>
           
           {/* Only show registration button for regular users, not for admins */}
@@ -589,10 +589,11 @@ const styles = StyleSheet.create({
     maxHeight: 200,
   },
   imageContainer: {
-    marginRight: 10,
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
   },
   galleryImage: {
-    width: 200,
+    width: SCREEN_WIDTH - 40,
     height: 200,
     borderRadius: 12,
   },
@@ -620,7 +621,7 @@ const styles = StyleSheet.create({
     height: SCREEN_HEIGHT,
   },
   infoContainer: {
-    backgroundColor: '#f5f5f5',
+    backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
@@ -649,13 +650,13 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   registeredButton: {
-    backgroundColor: '#4CAF50',
+    backgroundColor: '#1A4782',
   },
   fullButton: {
-    backgroundColor: '#9e9e9e',
+    backgroundColor: '#1A4782',
   },
   adminButton: {
-    backgroundColor: '#FF9800',
+    backgroundColor: '#1A4782',
     borderRadius: 30,
     paddingVertical: 14,
     alignItems: 'center',
@@ -667,14 +668,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Heebo-Bold',
   },
   editButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#1A4782',
     borderRadius: 30,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 12,
   },
   deleteButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#1A4782',
     borderRadius: 30,
     paddingVertical: 14,
     alignItems: 'center',
@@ -733,7 +734,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A4782',
   },
   cancelModalButton: {
-    backgroundColor: '#9e9e9e',
+    backgroundColor: '#1A4782',
   },
   modalButtonText: {
     color: 'white',
@@ -741,7 +742,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Heebo-Bold',
   },
   cancelButton: {
-    backgroundColor: '#F44336',
+    backgroundColor: '#1A4782',
     borderRadius: 30,
     paddingVertical: 14,
     alignItems: 'center',
