@@ -1,4 +1,3 @@
-// app/posts/create.tsx
 import React, { useState } from 'react';
 import {
   View,
@@ -11,9 +10,13 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { db, auth } from '../FirebaseConfig';
+import { db, auth, storage } from '../FirebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { getUser } from '../utils/firestoreUtils';
+import {
+  ref as storageRef,
+  uploadBytes,
+  getDownloadURL,
+} from 'firebase/storage';
 
 const CreatePostScreen = () => {
   const [title, setTitle] = useState('');
@@ -21,6 +24,7 @@ const CreatePostScreen = () => {
   const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
+  // Pick multiple images
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -33,12 +37,32 @@ const CreatePostScreen = () => {
       quality: 0.7,
     });
     if (!result.canceled) {
-      // map over assets array
       const uris = result.assets.map((asset: ImagePicker.ImagePickerAsset) => asset.uri);
       setImages(prev => [...prev, ...uris]);
     }
   };
 
+  // Remove selected image by index
+  const removeImage = (idx: number) => {
+    setImages(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  // Upload images to Firebase Storage and return URLs
+  const uploadImagesAndGetUrls = async (uris: string[]) => {
+    const uploadPromises = uris.map(async (uri, idx) => {
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      const user = auth.currentUser!;
+      const timestamp = Date.now();
+      const imageRef = storageRef(storage, `posts/${user.uid}/${timestamp}_${idx}`);
+      await uploadBytes(imageRef, blob);
+      const downloadUrl = await getDownloadURL(imageRef);
+      return downloadUrl;
+    });
+    return Promise.all(uploadPromises);
+  };
+
+  // Submit new post
   const handleSubmit = async () => {
     if (!title.trim() || !content.trim()) {
       Alert.alert('שגיאה', 'יש למלא כותרת ותוכן');
@@ -49,18 +73,24 @@ const CreatePostScreen = () => {
       const user = auth.currentUser;
       if (!user) throw new Error('משתמש לא מזוהה');
 
+      const imageUrls = images.length > 0 ? await uploadImagesAndGetUrls(images) : [];
+
       await addDoc(collection(db, 'posts'), {
         title,
         content,
-        images,
+        images: imageUrls,
         authorId: user.uid,
         createdAt: serverTimestamp(),
       });
 
       Alert.alert('הצלחה', 'הפוסט נוצר בהצלחה', [
-        { text: 'אישור', onPress: () => router.push('/(tabs)') }
+        { text: 'אישור', onPress: () => router.replace('/(tabs)') }
       ]);
+      setTitle('');
+      setContent('');
+      setImages([]);
     } catch (error) {
+      console.error(error);
       Alert.alert('שגיאה', 'אירעה שגיאה ביצירת הפוסט');
     } finally {
       setSaving(false);
@@ -92,12 +122,19 @@ const CreatePostScreen = () => {
       {images.length > 0 && (
         <ScrollView horizontal className="mb-4 space-x-2">
           {images.map((uri, i) => (
-            <Image
-              key={i}
-              source={{ uri }}
-              className="w-24 h-24 rounded"
-              resizeMode="cover"
-            />
+            <View key={i} className="relative">
+              <Image
+                source={{ uri }}
+                className="w-24 h-24 rounded"
+                resizeMode="cover"
+              />
+              <TouchableOpacity
+                onPress={() => removeImage(i)}
+                className="absolute top-0 right-0 bg-red-600 p-1 rounded-full"
+              >
+                <Text className="text-white text-xs">×</Text>
+              </TouchableOpacity>
+            </View>
           ))}
         </ScrollView>
       )}
@@ -105,6 +142,7 @@ const CreatePostScreen = () => {
       <TouchableOpacity
         className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
         onPress={pickImages}
+        disabled={saving}
       >
         <Text className="text-white text-lg font-heeboBold">
           הוסף תמונות

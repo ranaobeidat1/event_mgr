@@ -1,4 +1,5 @@
 // app/add-class.tsx
+import * as ImagePicker from 'expo-image-picker';
 import React, { useState } from 'react';
 import {
   View,
@@ -10,10 +11,13 @@ import {
   Alert,
   Platform,
   KeyboardAvoidingView,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
-import { auth, db } from './FirebaseConfig';
+import { auth, db, storage } from './FirebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 export default function AddClass() {
   const [name, setName] = useState('');
@@ -21,7 +25,65 @@ export default function AddClass() {
   const [location, setLocation] = useState('');
   const [schedule, setSchedule] = useState('');
   const [maxCapacity, setMaxCapacity] = useState('');
+  const [localImageUris, setLocalImageUris] = useState<string[]>([]);
+  const [payment, setPayment] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
+
+  // Function to pick images
+  const pickImages = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('שגיאה', 'אין הרשאה לגישה לתמונות');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.7,
+    });
+    if (!result.canceled) {
+      const uris = result.assets.map((asset: ImagePicker.ImagePickerAsset) => asset.uri);
+      setLocalImageUris(prev => [...prev, ...uris]);
+    }
+  };
+
+  // Function to remove an image
+  const removeImage = (index: number) => {
+    setLocalImageUris(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Function to upload images to Firebase Storage
+  const uploadImages = async (localUris: string[]): Promise<string[]> => {
+    setUploadingImages(true);
+    const uploadedUrls: string[] = [];
+    
+    try {
+      for (const uri of localUris) {
+        // Create a unique filename
+        const filename = `courses/${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
+        
+        // Convert URI to blob
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        
+        // Upload to Firebase Storage
+        const storageRef = ref(storage, filename);
+        const snapshot = await uploadBytes(storageRef, blob);
+        
+        // Get download URL
+        const downloadUrl = await getDownloadURL(snapshot.ref);
+        uploadedUrls.push(downloadUrl);
+      }
+      
+      return uploadedUrls;
+    } catch (error) {
+      console.error('Error uploading images:', error);
+      throw error;
+    } finally {
+      setUploadingImages(false);
+    }
+  };
 
   // Function to handle form submission
   const handleSubmit = async () => {
@@ -48,6 +110,18 @@ export default function AddClass() {
         return;
       }
 
+      // Upload images if any
+      let uploadedImageUrls: string[] = [];
+      if (localImageUris.length > 0) {
+        try {
+          uploadedImageUrls = await uploadImages(localImageUris);
+        } catch (error) {
+          Alert.alert('שגיאה', 'אירעה שגיאה בהעלאת התמונות');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+
       // Add document to Firestore
       const courseData = {
         name,
@@ -55,7 +129,8 @@ export default function AddClass() {
         location,
         schedule,
         maxCapacity: parsedCapacity,
-        imageUrl: '', // Empty string for now
+        imageUrl: uploadedImageUrls, // Array of Firebase Storage URLs
+        payment: payment || '', // Empty string if not provided
         createdBy: user.uid,
         createdAt: serverTimestamp(),
       };
@@ -138,6 +213,16 @@ export default function AddClass() {
           </View>
 
           <View className="mb-6">
+            <Text className="text-lg font-heebo-medium mb-2 text-right">תשלום</Text>
+            <TextInput
+              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              value={payment}
+              onChangeText={setPayment}
+              placeholder="לדוגמה: 150 ש״ח לחודש"
+            />
+          </View>
+
+          <View className="mb-6">
             <Text className="text-lg font-heebo-medium mb-2 text-right">מספר משתתפים מקסימלי</Text>
             <TextInput
               className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
@@ -148,14 +233,58 @@ export default function AddClass() {
             />
           </View>
 
+          {/* Image picker button */}
+          <TouchableOpacity
+            className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
+            onPress={pickImages}
+          >
+            <Text className="text-white text-lg font-heebo-bold">
+              הוסף תמונות
+            </Text>
+          </TouchableOpacity>
+
+          {/* Image preview */}
+          {localImageUris.length > 0 && (
+            <View className="mb-6">
+              <Text className="text-lg font-heebo-medium mb-2 text-right">תמונות שנבחרו:</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                {localImageUris.map((uri, index) => (
+                  <View key={index} className="mr-2">
+                    <Image
+                      source={{ uri }}
+                      className="w-24 h-24 rounded-lg"
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      className="absolute top-0 right-0 bg-red-500 rounded-full w-6 h-6 items-center justify-center"
+                      onPress={() => removeImage(index)}
+                    >
+                      <Text className="text-white text-xs">X</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+
+          {/* Submit button */}
           <TouchableOpacity
             onPress={handleSubmit}
-            disabled={isSubmitting}
-            className={`bg-primary rounded-full py-4 mb-10 ${isSubmitting ? 'opacity-70' : ''}`}
+            disabled={isSubmitting || uploadingImages}
+            className={`bg-primary rounded-full py-4 mb-10 ${(isSubmitting || uploadingImages) ? 'opacity-70' : ''}`}
           >
-            <Text className="text-white text-center text-xl font-heebo-bold">
-              {isSubmitting ? 'מוסיף חוג...' : 'הוסף חוג'}
-            </Text>
+            {uploadingImages ? (
+              <View className="flex-row items-center justify-center">
+                <ActivityIndicator color="white" size="small" />
+                <Text className="text-white text-center text-xl font-heebo-bold mr-2">
+                  מעלה תמונות...
+                </Text>
+              </View>
+            ) : (
+              <Text className="text-white text-center text-xl font-heebo-bold">
+                {isSubmitting ? 'מוסיף חוג...' : 'הוסף חוג'}
+              </Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

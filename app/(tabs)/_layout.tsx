@@ -1,55 +1,115 @@
-import React from "react";
-import { SafeAreaView, Image, Text, View } from "react-native";
+// app/(tabs)/_layout.tsx
+
+import React, { useEffect, useState } from "react";
+import {
+  SafeAreaView,
+  View,
+  Text,
+  Image,
+  ActivityIndicator,
+} from "react-native";
 import { Tabs } from "expo-router";
 import { useFonts } from "expo-font";
+import { useAuth } from "../_layout";
+import { getUser, type UserData } from "../utils/firestoreUtils";
 
-export default function _layout() {
-  const [loaded] = useFonts({
-    // Heebo fonts: using two levels up for the relative path
-    "Heebo-Thin": require("../../assets/fonts/Heebo-Thin.ttf"),
-    "Heebo-ExtraLight": require("../../assets/fonts/Heebo-ExtraLight.ttf"),
-    "Heebo-Light": require("../../assets/fonts/Heebo-Light.ttf"),
-    "Heebo-Regular": require("../../assets/fonts/Heebo-Regular.ttf"),
-    "Heebo-Medium": require("../../assets/fonts/Heebo-Medium.ttf"),
-    "Heebo-SemiBold": require("../../assets/fonts/Heebo-SemiBold.ttf"),
-    "Heebo-Bold": require("../../assets/fonts/Heebo-Bold.ttf"),
+export default function TabsLayout() {
+  // 1) Load your fonts
+  const [fontsLoaded] = useFonts({
+    "Heebo-Thin":      require("../../assets/fonts/Heebo-Thin.ttf"),
+    "Heebo-ExtraLight":require("../../assets/fonts/Heebo-ExtraLight.ttf"),
+    "Heebo-Light":     require("../../assets/fonts/Heebo-Light.ttf"),
+    "Heebo-Regular":   require("../../assets/fonts/Heebo-Regular.ttf"),
+    "Heebo-Medium":    require("../../assets/fonts/Heebo-Medium.ttf"),
+    "Heebo-SemiBold":  require("../../assets/fonts/Heebo-SemiBold.ttf"),
+    "Heebo-Bold":      require("../../assets/fonts/Heebo-Bold.ttf"),
     "Heebo-ExtraBold": require("../../assets/fonts/Heebo-ExtraBold.ttf"),
-    "Heebo-Black": require("../../assets/fonts/Heebo-Black.ttf"),
-    // Tahoma (already using two levels up)
-    Tahoma: require("../../assets/fonts/tahoma.ttf"),
+    "Heebo-Black":     require("../../assets/fonts/Heebo-Black.ttf"),
+    Tahoma:            require("../../assets/fonts/tahoma.ttf"),
   });
 
-  if (!loaded) return null;
+  // 2) Get the Firebase User from context
+  const { user } = useAuth();
+
+  // 3) Fetch Firestore profile data (firstName, etc.)
+  const [profile, setProfile] = useState<UserData | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+
+  useEffect(() => {
+    if (!user) {
+      setLoadingProfile(false);
+      return;
+    }
+    (async () => {
+      try {
+        const data = await getUser(user.uid);
+        setProfile(data);
+      } catch (err) {
+        console.error("Error loading profile:", err);
+      } finally {
+        setLoadingProfile(false);
+      }
+    })();
+  }, [user]);
+
+  // 4) Wait for fonts and profile load
+  if (!fontsLoaded || loadingProfile) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#1A4782", justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+      </SafeAreaView>
+    );
+  }
+
+  // 5) Derive display name from Firestore data
+  const displayName = profile?.firstName ?? "משתמש";
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: "#1A4782" }}>
-        <Text className="absolute top-[80px] left-[20px] text-white text-2xl font-heebo-bold">
-  שלום יוסף !
-</Text>
-  <View
-  style={{
-    height: 70,
-    width: 90,
-    backgroundColor: "#ffffff",
-    alignSelf: "flex-end",
-    marginRight: 0,
-    justifyContent: "center", // Center the logo vertically
-    alignItems: "center", // Center the logo horizontally
-  }}
->
-  <Image
-    source={require("../../assets/icons/logoIcon.png")} // Update this path to your logo's location
-    style={{
-      width: "80%",  // Adjust width as needed
-      height: "80%", // Adjust height as needed
-      resizeMode: "contain", // Ensures the logo maintains its aspect ratio
-    }}
-  />
-  
+    <SafeAreaView style={{ flex: 1 }}>
+      {/* Blue header box */}
+      <View
+        style={{
+          height: 75,
+          backgroundColor: "#1A4782",
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+        }}
+      >
+        <Text
+          style={{
+            color: "#FFFFFF",
+            fontSize: 24,
+            fontFamily: "Heebo-Bold",
+          }}
+        >
+          שלום {displayName}!
+        </Text>
+        {/* White logo box */}
+        <View
+          style={{
+             position: 'absolute',
+            right: 0,
+            height: 75,
+            width: 90,
+            backgroundColor: "#FFFFFF",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          <Image
+            source={require("../../assets/icons/logoIcon.png")}
+            style={{
+              width: "80%",
+              height: "80%",
+              resizeMode: "contain",
+            }}
+          />
+        </View>
+      </View>
 
-</View>
-
-
+      {/* Tabs Navigator (unchanged) */}
       <Tabs
         screenOptions={{
           tabBarItemStyle: {
@@ -58,7 +118,7 @@ export default function _layout() {
           },
           tabBarStyle: {
             height: 90,
-            backgroundColor: "#1A4782", // Primary color background
+            backgroundColor: "#1A4782",
             position: "absolute",
             bottom: 0,
           },
@@ -67,13 +127,12 @@ export default function _layout() {
         <Tabs.Screen
           name="index"
           options={{
-            title: "home",
             headerShown: false,
             tabBarIcon: ({ focused }) => (
               <View
                 className={`flex justify-center items-center mt-6 ${
                   focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16 flex flex-col items-center justify-center"
+                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
                     : ""
                 }`}
               >
@@ -94,13 +153,12 @@ export default function _layout() {
         <Tabs.Screen
           name="alerts"
           options={{
-            title: "alerts",
             headerShown: false,
             tabBarIcon: ({ focused }) => (
               <View
                 className={`flex justify-center items-center mt-6 ${
                   focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16 flex flex-col items-center justify-center"
+                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
                     : ""
                 }`}
               >
@@ -121,13 +179,12 @@ export default function _layout() {
         <Tabs.Screen
           name="classes"
           options={{
-            title: "classes",
             headerShown: false,
             tabBarIcon: ({ focused }) => (
               <View
                 className={`flex justify-center items-center mt-6 ${
                   focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16 flex flex-col items-center justify-center"
+                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
                     : ""
                 }`}
               >
@@ -148,13 +205,12 @@ export default function _layout() {
         <Tabs.Screen
           name="profile"
           options={{
-            title: "profile",
             headerShown: false,
             tabBarIcon: ({ focused }) => (
               <View
                 className={`flex justify-center items-center mt-6 ${
                   focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16 flex flex-col items-center justify-center"
+                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
                     : ""
                 }`}
               >

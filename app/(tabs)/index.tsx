@@ -31,10 +31,7 @@ interface UserData {
 const PostItem = ({ item }: { item: Post }) => {
   const images = item.images || [];
   const total = images.length;
-
-  const goToDetail = () => {
-    router.push(`./posts/${item.id}`);
-  };
+  const goToDetail = () => router.push(`./posts/${item.id}`);
 
   // Single image
   if (total === 1) {
@@ -45,17 +42,14 @@ const PostItem = ({ item }: { item: Post }) => {
       >
         <Image
           source={{ uri: images[0] }}
-          className="w-[500px] h-[500px]"
+          className="w-[500px] h-[500px] border border-white"
           resizeMode="cover"
         />
         <View className="p-4 bg-[#1A4782] w-full">
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text
-            className="mt-1 text-white text-right"
-            numberOfLines={2}
-          >
+          <Text className="mt-1 text-white text-right" numberOfLines={2}>
             {item.content}
           </Text>
         </View>
@@ -72,7 +66,7 @@ const PostItem = ({ item }: { item: Post }) => {
             <TouchableOpacity key={idx} onPress={goToDetail}>
               <Image
                 source={{ uri }}
-                className="w-[500px] h-[500px] mx-1"
+                className="w-[500px] h-[500px] mx-0.25 border border-white"
                 resizeMode="cover"
               />
             </TouchableOpacity>
@@ -106,7 +100,12 @@ const PostItem = ({ item }: { item: Post }) => {
         >
           <Image
             source={{ uri: images[0] }}
-            style={{ width: SCREEN_WIDTH / 2, height: SCREEN_WIDTH / 2 }}
+            style={{
+              width: SCREEN_WIDTH / 2,
+              height: SCREEN_WIDTH / 2,
+              borderWidth: 1,
+              borderColor: '#FFFFFF',
+            }}
             resizeMode="cover"
           />
           <View style={{ width: SCREEN_WIDTH / 2 }}>
@@ -114,7 +113,12 @@ const PostItem = ({ item }: { item: Post }) => {
               <Image
                 key={idx}
                 source={{ uri }}
-                style={{ width: SCREEN_WIDTH / 2, height: SCREEN_WIDTH / 4 }}
+                style={{
+                  width: SCREEN_WIDTH / 2,
+                  height: SCREEN_WIDTH / 4,
+                  borderWidth: 1,
+                  borderColor: '#FFFFFF',
+                }}
                 resizeMode="cover"
               />
             ))}
@@ -124,10 +128,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text
-            className="mt-1 text-white text-right"
-            numberOfLines={2}
-          >
+          <Text className="mt-1 text-white text-right" numberOfLines={2}>
             {item.content}
           </Text>
         </View>
@@ -135,49 +136,10 @@ const PostItem = ({ item }: { item: Post }) => {
     );
   }
 
-  // Four images
-  if (total === 4) {
-    const cellSize = SCREEN_WIDTH / 2;
-    return (
-      <TouchableOpacity
-        onPress={goToDetail}
-        className="m-2 overflow-hidden bg-white rounded-lg"
-      >
-        <View
-          style={{
-            flexDirection: "row",
-            flexWrap: "wrap",
-            width: SCREEN_WIDTH,
-          }}
-        >
-          {images.slice(0, 4).map((uri, idx) => (
-            <Image
-              key={idx}
-              source={{ uri }}
-              style={{ width: cellSize, height: cellSize }}
-              resizeMode="cover"
-            />
-          ))}
-        </View>
-        <View className="p-4 bg-[#1A4782] w-full">
-          <Text className="text-xl font-heebo-bold text-white text-right">
-            {item.title}
-          </Text>
-          <Text
-            className="mt-1 text-white text-right"
-            numberOfLines={2}
-          >
-            {item.content}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }
-
-  // 5+ images
+  // Four images and 5+
   const cellSize = SCREEN_WIDTH / 2;
   const extra = total - 4;
-  if (total > 4) {
+  if (total >= 4) {
     return (
       <TouchableOpacity
         onPress={goToDetail}
@@ -191,17 +153,19 @@ const PostItem = ({ item }: { item: Post }) => {
           }}
         >
           {images.slice(0, 4).map((uri, idx) => (
-            <View
-              key={idx}
-              style={{ width: cellSize, height: cellSize }}
-            >
+            <View key={idx} style={{ width: cellSize, height: cellSize }}>
               <Image
                 source={{ uri }}
-                style={{ width: "100%", height: "100%" }}
+                style={{
+                  width: cellSize,
+                  height: cellSize,
+                  borderWidth: 1,
+                  borderColor: '#FFFFFF',
+                }}
                 resizeMode="cover"
-                blurRadius={idx === 3 ? 10 : 0}
+                blurRadius={idx === 3 && total > 4 ? 10 : 0}
               />
-              {idx === 3 && (
+              {idx === 3 && total > 4 && (
                 <View className="absolute inset-0 justify-center items-center">
                   <Text className="text-white text-xl font-heeboBold bg-black bg-opacity-50 px-2 py-1">
                     +{extra}
@@ -215,10 +179,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text
-            className="mt-1 text-white text-right"
-            numberOfLines={2}
-          >
+          <Text className="mt-1 text-white text-right" numberOfLines={2}>
             {item.content}
           </Text>
         </View>
@@ -240,10 +201,7 @@ export default function PostsScreen() {
     );
     const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
       setPosts(
-        snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<Post, "id">),
-        }))
+        snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Post, "id">) }))
       );
     });
 
@@ -262,13 +220,10 @@ export default function PostsScreen() {
     <SafeAreaView className="flex-1 bg-white">
       {isAdmin && (
         <TouchableOpacity
-       className="absolute top-4 right-4 w-14 h-14 bg-yellow-400 rounded-full items-center justify-center shadow-lg z-10"
-
+          className="absolute top-4 right-4 w-14 h-14 bg-yellow-400 rounded-full items-center justify-center shadow-lg z-10"
           onPress={() => router.push("/posts/create")}
         >
-          <Text className="text-black text-2xl font-heeboBold">
-            +
-          </Text>
+          <Text className="text-black text-2xl font-heeboBold">+</Text>
         </TouchableOpacity>
       )}
 
