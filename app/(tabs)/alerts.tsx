@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
+  TextInput,
 } from "react-native";
 import { router } from "expo-router";
 import { auth, db } from "../FirebaseConfig";
@@ -33,8 +34,24 @@ export default function AlertsScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
+  const [filteredAlerts, setFilteredAlerts] = useState<AlertData[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter alerts based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredAlerts(alerts);
+    } else {
+      const filtered = alerts.filter(alert => {
+        const titleMatch = alert.title?.toLowerCase().includes(searchQuery.toLowerCase());
+        const messageMatch = alert.message?.toLowerCase().includes(searchQuery.toLowerCase());
+        return titleMatch || messageMatch;
+      });
+      setFilteredAlerts(filtered);
+    }
+  }, [alerts, searchQuery]);
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -129,24 +146,59 @@ export default function AlertsScreen() {
         </Text>
       </View>
 
+      {/* Search Box */}
+      <View className="px-4 mb-4">
+        <TextInput
+          className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+          placeholder="חפש התראות..."
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.trim() !== "" && (
+          <TouchableOpacity
+            className="absolute left-7 top-1/2 transform -translate-y-1/2"
+            onPress={() => setSearchQuery("")}
+          >
+            <Text className="text-gray-500 text-lg">×</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
       <ScrollView 
         className="flex-1 w-full"
         contentContainerStyle={{ 
           paddingBottom: isAdmin ? 120 : 20, 
-          paddingTop: 20 
+          paddingTop: 10 
         }}
       >
-        {alerts.length === 0 ? (
+        {filteredAlerts.length === 0 ? (
           <View className="flex-1 justify-center items-center px-4">
             <Text className="text-center text-gray-500 font-heebo-regular">
-              אין התראות עדיין
+              {searchQuery.trim() !== "" ? "לא נמצאו התראות התואמות לחיפוש" : "אין התראות עדיין"}
             </Text>
           </View>
         ) : (
-          <View className="px-4 space-y-6 pt-6">
-            {alerts.map((alert) => {
+          <View className="px-4 space-y-6">
+            {/* Search Results Counter */}
+            {searchQuery.trim() !== "" && (
+              <View className="mb-2">
+                <Text className="text-sm text-gray-600 font-heebo-medium text-right">
+                  נמצאו {filteredAlerts.length} התראות
+                </Text>
+              </View>
+            )}
+            
+            {filteredAlerts.map((alert) => {
               const isExpanded = expandedAlerts[alert.id];
               const messageNeedsTruncation = alert.message && alert.message.length > 150;
+
+              // Highlight search term in text
+              const highlightText = (text: string, query: string) => {
+                if (!query.trim()) return text;
+                const regex = new RegExp(`(${query})`, 'gi');
+                return text; // For now, just return text. We can add highlighting later if needed
+              };
 
               return (
                 <View key={alert.id} className="bg-gray-50 p-4 rounded-xl shadow">

@@ -1,6 +1,13 @@
 // app/(tabs)/classes.tsx
 import React, { useEffect, useState } from "react";
-import { ScrollView, Text, View, SafeAreaView, TouchableOpacity } from "react-native";
+import { 
+  ScrollView, 
+  Text, 
+  View, 
+  SafeAreaView, 
+  TouchableOpacity,
+  TextInput 
+} from "react-native";
 import { Link } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import { auth, db } from "../FirebaseConfig";
@@ -16,10 +23,38 @@ interface UserData {
   createdAt?: any;
 }
 
+interface ClassData {
+  id: string;
+  name: string;
+  description?: string;
+  location?: string;
+  schedule?: string;
+  payment?: string;
+  maxCapacity?: number;
+}
+
 export default function Index() {
-  const [classes, setClasses] = useState<any[]>([]);
+  const [classes, setClasses] = useState<ClassData[]>([]);
+  const [filteredClasses, setFilteredClasses] = useState<ClassData[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter classes based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredClasses(classes);
+    } else {
+      const filtered = classes.filter(cls => {
+        const nameMatch = cls.name?.toLowerCase().includes(searchQuery.toLowerCase());
+        const descriptionMatch = cls.description?.toLowerCase().includes(searchQuery.toLowerCase());
+        const locationMatch = cls.location?.toLowerCase().includes(searchQuery.toLowerCase());
+        const scheduleMatch = cls.schedule?.toLowerCase().includes(searchQuery.toLowerCase());
+        return nameMatch || descriptionMatch || locationMatch || scheduleMatch;
+      });
+      setFilteredClasses(filtered);
+    }
+  }, [classes, searchQuery]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -35,7 +70,12 @@ export default function Index() {
         const querySnapshot = await getDocs(collection(db, "courses"));
         const coursesList = querySnapshot.docs.map(doc => ({
           id: doc.id,
-          ...doc.data()
+          name: doc.data().name,
+          description: doc.data().description,
+          location: doc.data().location,
+          schedule: doc.data().schedule,
+          payment: doc.data().payment,
+          maxCapacity: doc.data().maxCapacity,
         }));
         
         setClasses(coursesList);
@@ -73,19 +113,52 @@ export default function Index() {
           </Link>
         )}
 
+        {/* Search Box */}
+        <View className="mt-6 mb-4">
+          <TextInput
+            className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+            placeholder="חפש חוגים..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          {searchQuery.trim() !== "" && (
+            <TouchableOpacity
+              className="absolute left-7 top-1/2 transform -translate-y-1/2"
+              onPress={() => setSearchQuery("")}
+            >
+              <Text className="text-gray-500 text-lg">×</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
         {/* Container for clickable class pills */}
-        <View className="mt-8 flex flex-col gap-8">
-          {classes.length > 0 ? (
-            classes.map((cls) => (
+        <View className="flex flex-col gap-8">
+          {/* Search Results Counter */}
+          {searchQuery.trim() !== "" && (
+            <View className="mb-2">
+              <Text className="text-sm text-gray-600 font-heebo-medium text-right">
+                נמצאו {filteredClasses.length} חוגים
+              </Text>
+            </View>
+          )}
+
+          {filteredClasses.length > 0 ? (
+            filteredClasses.map((cls) => (
               <Link key={cls.id} href={`/classes/${cls.id}`}>
                 <View className="bg-primary rounded-full px-14 py-8 shadow-md w-full items-center">
                   <Text className="text-white font-heebo-bold text-xl">{cls.name}</Text>
+                  {searchQuery.trim() !== "" && cls.description && (
+                    <Text className="text-white font-heebo-regular text-sm mt-1 text-center" numberOfLines={1}>
+                      {cls.description}
+                    </Text>
+                  )}
                 </View>
               </Link>
             ))
           ) : (
             <Text className="text-center text-gray-600 font-heebo-medium text-lg mt-4">
-              אין חוגים זמינים כרגע
+              {searchQuery.trim() !== "" ? "לא נמצאו חוגים התואמים לחיפוש" : "אין חוגים זמינים כרגע"}
             </Text>
           )}
         </View>

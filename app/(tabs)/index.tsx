@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   Image,
   Dimensions,
+  TextInput,
 } from "react-native";
 import { router } from "expo-router";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
@@ -192,7 +193,23 @@ const PostItem = ({ item }: { item: Post }) => {
 
 export default function PostsScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter posts based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredPosts(posts);
+    } else {
+      const filtered = posts.filter(post => {
+        const titleMatch = post.title?.toLowerCase().includes(searchQuery.toLowerCase());
+        const contentMatch = post.content?.toLowerCase().includes(searchQuery.toLowerCase());
+        return titleMatch || contentMatch;
+      });
+      setFilteredPosts(filtered);
+    }
+  }, [posts, searchQuery]);
 
   useEffect(() => {
     const postsQuery = query(
@@ -216,6 +233,50 @@ export default function PostsScreen() {
     return unsubscribe;
   }, []);
 
+  const ListHeaderComponent = () => (
+    <View>
+      <Text className="text-3xl font-heebo-bold mt-5 text-[#1A4782] text-center">
+        ברוכים הבאים לאפליקציה שלנו!
+      </Text>
+      
+      {/* Search Box */}
+      <View className="mx-4 mt-6 mb-4">
+        <TextInput
+          className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+          placeholder="חפש פוסטים..."
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.trim() !== "" && (
+          <TouchableOpacity
+            className="absolute left-7 top-1/2 transform -translate-y-1/2"
+            onPress={() => setSearchQuery("")}
+          >
+            <Text className="text-gray-500 text-lg">×</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Search Results Counter */}
+      {searchQuery.trim() !== "" && (
+        <View className="mx-4 mb-2">
+          <Text className="text-sm text-gray-600 font-heebo-medium text-right">
+            נמצאו {filteredPosts.length} פוסטים
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+
+  const ListEmptyComponent = () => (
+    <View className="flex-1 items-center justify-center mt-20">
+      <Text className="text-center text-gray-600 font-heebo-medium text-lg">
+        {searchQuery.trim() !== "" ? "לא נמצאו פוסטים התואמים לחיפוש" : "אין פוסטים עדיין"}
+      </Text>
+    </View>
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {isAdmin && (
@@ -228,14 +289,11 @@ export default function PostsScreen() {
       )}
 
       <FlatList<Post>
-        data={posts}
+        data={filteredPosts}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <PostItem item={item} />}
-        ListHeaderComponent={() => (
-          <Text className="text-3xl font-heebo-bold mt-5 text-[#1A4782] text-center">
-            ברוכים הבאים לאפליקציה שלנו!
-          </Text>
-        )}
+        ListHeaderComponent={ListHeaderComponent}
+        ListEmptyComponent={ListEmptyComponent}
         contentContainerStyle={{
           paddingBottom: 120,
           paddingTop: isAdmin ? 60 : 20,
