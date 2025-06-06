@@ -1,5 +1,5 @@
 // app/alerts/create-alert.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,87 +11,122 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
-  Image, // For displaying a preview if you add image picking
+  Switch,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
-import { db, auth, storage } from '../FirebaseConfig'; // Assuming storage might be used later
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import * as ImagePicker from 'expo-image-picker'; // Uncomment if you add image picking
-import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'; // For image upload
+import { db, auth } from '../FirebaseConfig';
+import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
+
+// Interface for notification recipients
+interface NotificationTarget {
+  type: 'all' | 'course' | 'specific';
+  courseId?: string;
+  userIds?: string[];
+}
+
+interface CourseData {
+  id: string;
+  name: string;
+}
 
 export default function CreateAlertScreen() {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
-  const [images, setImages] = useState<string[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const pickImages = async () => {
-    if (isUploading || isSubmitting)
-      return;
+  // Push notification settings
+  const [sendPushNotification, setSendPushNotification] = useState(true);
+  const [notificationTarget, setNotificationTarget] = useState<NotificationTarget>({ type: 'all' });
+  const [courses, setCourses] = useState<CourseData[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
 
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('שגיאה', 'אין הרשאה לגישה לתמונות');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      allowsEditing: true,
-      quality: 0.7,
-    });
-
-    if (!result.canceled && result.assets) {
-      const uris = result.assets.map((asset) => asset.uri);
-      setImages(prev => [...prev, ...uris]);
-    }
-  };
-
-  const removeImage = (indexToRemove: number) => {
-    setImages(prev => prev.filter((_, index) => index !== indexToRemove));
-  };
-
-  // Upload images to firebase storage and return their URLs
-  const uploadImgsAndGetFirebaseUrls = async (uris: string[]): Promise<string[]> => {
-    setIsUploading(true);
-    const user = auth.currentUser;
-    if (!user){
-      setIsUploading(false);
-      throw new Error("User not authenticated for image upload.");
-    }
-
-    const uploadPromises = uris.map(async (uri, indx) => {
-      try{
-        const response = await fetch(uri); // Fetch the image data from local URI
-        const blob = await response.blob();   // Convert to Blob
-        
-        const fileExtension = uri.split('.').pop || 'jpg';
-        const fileName = `alert-${user.uid}-${Date.now()}-${indx}.${fileExtension}`;
-        const imageRef = storageRef(storage, `alerts/${fileName}`); // Path in Firebase Storage
-
-        console.log(`Uploading ${fileName} to Firebase Storage...`);
-        await uploadBytes(imageRef, blob); // Upload the blob
-
-        const downloadUrl = await getDownloadURL(imageRef); // Get the download URL
-        console.log(`${fileName} uploaded. URL: ${downloadUrl}`);
-        return downloadUrl;
-      } catch (uploadError) {
-        console.error(`Error uploading image ${uri}:`, uploadError);
-        throw uploadError; // Re-throw to be caught by Promise.all or handleSubmit
+  // Load courses for targeting
+  useEffect(() => {
+    const loadCourses = async () => {
+      setLoadingCourses(true);
+      try {
+        const coursesSnapshot = await getDocs(collection(db, 'courses'));
+        const coursesData = coursesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          name: doc.data().name
+        }));
+        setCourses(coursesData);
+      } catch (error) {
+        console.error('Error loading courses:', error);
+      } finally {
+        setLoadingCourses(false);
       }
-    });
+    };
+
+    loadCourses();
+  }, []);
+
+  // Get FCM tokens based on target
+  const getFCMTokensForTarget = async (target: NotificationTarget): Promise<string[]> => {
+    try {
+      if (target.type === 'all') {
+        // Get all FCM tokens
+        const tokensSnapshot = await getDocs(collection(db, 'fcmTokens'));
+        return tokensSnapshot.docs.map(doc => doc.data().token).filter(Boolean);
+      } else if (target.type === 'course' && target.courseId) {
+        // Get tokens for users registered to a specific course
+        const registrationsSnapshot = await getDocs(
+          query(collection(db, 'Registrations'), where('courseId', '==', target.courseId))
+        );
+        const userIds = registrationsSnapshot.docs.map(doc => doc.data().userId);
+        
+        if (userIds.length === 0) return [];
+        
+        // Get FCM tokens for these users
+        const tokensSnapshot = await getDocs(collection(db, 'fcmTokens'));
+        return tokensSnapshot.docs
+          .filter(doc => userIds.includes(doc.data().userId))
+          .map(doc => doc.data().token)
+          .filter(Boolean);
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error getting FCM tokens:', error);
+      return [];
+    }
+  };
+
+  // Send push notification using Expo Push API
+  const sendPushNotifications = async (tokens: string[], alertTitle: string, alertMessage: string) => {
+    if (tokens.length === 0) return;
+
+    const messages = tokens.map(token => ({
+      to: token,
+      sound: 'default',
+      title: alertTitle || 'התראה חדשה',
+      body: alertMessage,
+      data: { 
+        screen: '/(tabs)/alerts',
+        alertId: 'new' 
+      },
+    }));
 
     try {
-      const urls = await Promise.all(uploadPromises);
-      setIsUploading(false);
-      return urls;
-    } catch (error) {
-      setIsUploading (false);
-      console.error("One or more image uploads failed:", error);
+      const response = await fetch('https://exp.host/--/api/v2/push/send', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Accept-encoding': 'gzip, deflate',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(messages),
+      });
 
-      throw new Error("Image upload process failed.");
+      const result = await response.json();
+      console.log('Push notification result:', result);
+      
+      if (result.errors) {
+        console.error('Push notification errors:', result.errors);
+      }
+    } catch (error) {
+      console.error('Error sending push notifications:', error);
     }
   };
 
@@ -100,15 +135,9 @@ export default function CreateAlertScreen() {
       Alert.alert('שגיאה', 'יש למלא כותרת או תוכן להתראה');
       return;
     }
-    if(!message.trim() && images.length === 0 &&!title.trim()){
-      Alert.alert('שגיאה', 'יש למלא תוכן כלשהו להתראה');
-      return;
-    }
 
     setIsSubmitting(true);
 
-    let uploadedImageUrls: string[] = [];
-   
     try {
       const user = auth.currentUser;
       if (!user) {
@@ -118,32 +147,43 @@ export default function CreateAlertScreen() {
         return;
       }
 
-      if(images.length > 0){
-        uploadedImageUrls = await uploadImgsAndGetFirebaseUrls(images);
-      }
-
+      // Create alert in Firestore
       const alertData = {
         title: title.trim(),
         message: message.trim(),
-        images: uploadedImageUrls,
         createdBy: user.uid,
         createdAt: serverTimestamp(),
+        notificationSent: sendPushNotification,
+        targetType: notificationTarget.type,
+        targetCourseId: notificationTarget.courseId || null,
       };
 
       await addDoc(collection(db, 'alerts'), alertData);
 
+      // Send push notifications if enabled
+      if (sendPushNotification) {
+        const tokens = await getFCMTokensForTarget(notificationTarget);
+        if (tokens.length > 0) {
+          await sendPushNotifications(tokens, title.trim(), message.trim());
+          console.log(`✅ Push notifications sent to ${tokens.length} devices`);
+        } else {
+          console.log('⚠️ No FCM tokens found for target audience');
+        }
+      }
+
       Alert.alert('הצלחה', 'ההתראה נוצרה ונשלחה בהצלחה', [
         {
           text: 'אישור',
-          onPress: () => router.back(), // Or router.replace('/(tabs)/alerts')
+          onPress: () => router.back(),
         },
       ]);
-      // Reset form fields first
-        setTitle('');      // Reset title
-        setMessage('');    // Reset message
-        setImages([]);     // Reset images (local URIs)
-        // Then navigate back
-        router.back();     // This should take you to the alerts list
+
+      // Reset form
+      setTitle('');
+      setMessage('');
+      setSendPushNotification(true);
+      setNotificationTarget({ type: 'all' });
+      router.back();
     } catch (error) {
       console.error('Error creating alert:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה ביצירת ההתראה.');
@@ -152,7 +192,7 @@ export default function CreateAlertScreen() {
     }
   };
 
-  const isLoading = isSubmitting || isUploading;
+  const isLoading = isSubmitting;
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -165,19 +205,19 @@ export default function CreateAlertScreen() {
             <TouchableOpacity onPress={() => router.back()}>
               <Text className="text-primary text-lg font-heebo-medium">חזרה</Text>
             </TouchableOpacity>
-          
           </View>
-            <View className="items-center">
-              <Text className="text-3xl font-heebo-bold text-primary">
-                יצירת התראה חדשה
-              </Text>
-            </View>
+          <View className="items-center">
+            <Text className="text-3xl font-heebo-bold text-primary">
+              יצירת התראה חדשה
+            </Text>
           </View>
+        </View>
          
         <ScrollView 
           className="flex-1 px-6"
           contentContainerStyle={{ paddingBottom: 40 }}
         >
+          {/* Title Input */}
           <View className='mb-4'>
             <TextInput
               className="bg-gray-100 rounded-lg px-5 py-3 text-lg font-heebo-regular text-right"
@@ -188,6 +228,7 @@ export default function CreateAlertScreen() {
             />
           </View>
 
+          {/* Message Input */}
           <View className="mb-4">
             <TextInput
               className="bg-gray-100 rounded-lg px-5 py-3 text-lg font-heebo-regular text-right h-32"
@@ -197,64 +238,94 @@ export default function CreateAlertScreen() {
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={4}
-              textAlignVertical="top" // Important for multiline text input
+              textAlignVertical="top"
             />
           </View>
 
-          {/* Image Preview Section */}
-          {images.length > 0 && (
-            <View className="mb-4">
-              <Text className="text-lg font-heebo-medium mb-2 text-right text-gray-700">
-                תמונות שנבחרו ({images.length})
-              </Text>
-              <ScrollView horizontal className="space-x-2" showsHorizontalScrollIndicator={false}>
-                {images.map((uri, index) => (
-                  <View key={index} className="relative">
-                    <Image
-                      source={{ uri }}
-                      className="w-24 h-24 rounded-lg"
-                      resizeMode="cover"
-                    />
-                    <TouchableOpacity
-                      onPress={() => !isLoading && removeImage(index)}
-                      disabled={isLoading}
-                      className="absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 items-center justify-center shadow"
-                    >
-                      <Text className="text-white text-xs font-bold">×</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
-              </ScrollView>
+          {/* Push Notification Toggle */}
+          <View className="mb-4 p-4 bg-gray-50 rounded-lg">
+            <View className="flex-row justify-between items-center mb-3">
+              <Text className="text-lg font-heebo-bold text-gray-800">שלח התראת פוש</Text>
+              <Switch
+                value={sendPushNotification}
+                onValueChange={setSendPushNotification}
+                trackColor={{ false: '#D1D5DB', true: '#1A4782' }}
+                thumbColor={sendPushNotification ? '#FFFFFF' : '#F3F4F6'}
+              />
             </View>
-          )}
-          
-          {/* Add Images Button */}
-          <TouchableOpacity
-            className= {`bg-[#1A4782] rounded-full py-3 mb-6 items-center ${isLoading ? 'opacity-50' : ''}`}
-            onPress={pickImages}
-            disabled={isLoading}
-          >
-            <Text className="text-white text-lg font-heebo-bold">
-              {images.length > 0 ? 'הוסף תמונות נוספות' : 'הוסף תמונות'}
-            </Text>
-          </TouchableOpacity>
+            
+            {sendPushNotification && (
+              <View>
+                <Text className="text-sm text-gray-600 mb-3 text-right">בחר למי לשלוח:</Text>
+                
+                {/* Target Selection */}
+                <View className="mb-3">
+                  <TouchableOpacity
+                    className={`p-3 rounded-lg border ${notificationTarget.type === 'all' ? 'bg-primary border-primary' : 'bg-white border-gray-300'}`}
+                    onPress={() => setNotificationTarget({ type: 'all' })}
+                  >
+                    <Text className={`text-right font-heebo-medium ${notificationTarget.type === 'all' ? 'text-white' : 'text-gray-800'}`}>
+                      כל המשתמשים
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
+                <View className="mb-3">
+                  <TouchableOpacity
+                    className={`p-3 rounded-lg border ${notificationTarget.type === 'course' ? 'bg-primary border-primary' : 'bg-white border-gray-300'}`}
+                    onPress={() => setNotificationTarget({ type: 'course', courseId: courses[0]?.id })}
+                  >
+                    <Text className={`text-right font-heebo-medium ${notificationTarget.type === 'course' ? 'text-white' : 'text-gray-800'}`}>
+                      משתמשים רשומים לחוג ספציפי
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Course Selection */}
+                {notificationTarget.type === 'course' && (
+                  <View className="bg-white border border-gray-300 rounded-lg">
+                    {loadingCourses ? (
+                      <View className="p-4">
+                        <ActivityIndicator size="small" color="#1A4782" />
+                      </View>
+                    ) : (
+                      <Picker
+                        selectedValue={notificationTarget.courseId}
+                        onValueChange={(courseId) => 
+                          setNotificationTarget({ type: 'course', courseId })
+                        }
+                        style={{ textAlign: 'right' }}
+                      >
+                        {courses.map(course => (
+                          <Picker.Item 
+                            key={course.id} 
+                            label={course.name} 
+                            value={course.id} 
+                          />
+                        ))}
+                      </Picker>
+                    )}
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+
+          {/* Submit Button */}
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={isLoading}
-            className={`bg-yellow-400 rounded-full py-4 mt-4 ${
-              isLoading ? 'opacity-50' : ''
-            }`}
+            className={`bg-yellow-400 rounded-full py-4 mt-4 ${isLoading ? 'opacity-50' : ''}`}
           >
             {isLoading ? (
-              <View className="flex-row items-center">
-              <ActivityIndicator color="bg-yellow-400" size="large" />
-              <Text className="text-black text-center text-xl font-heebo-bold ml-2">
-                {isUploading ? 'מעלה תמונות...' : 'שולח התראה...'}
-              </Text>
-            </View>
+              <View className="flex-row items-center justify-center">
+                <ActivityIndicator color="black" size="large" />
+                <Text className="text-black text-center text-xl font-heebo-bold ml-2">
+                  שולח התראה...
+                </Text>
+              </View>
             ) : (
-              <Text className="text-white text-center text-xl font-heebo-bold">
+              <Text className="text-black text-center text-xl font-heebo-bold">
                 שלח התראה
               </Text>
             )}

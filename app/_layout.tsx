@@ -1,11 +1,20 @@
 // app/_layout.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Stack, Slot, SplashScreen } from "expo-router";
+import { Stack, SplashScreen } from "expo-router";
 import { useFonts } from "expo-font";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "./FirebaseConfig";
 import { View, ActivityIndicator } from "react-native";
 import "./global.css";
+
+// Import notification functions
+import {
+  registerForPushNotificationsAsync,
+  saveFCMTokenToFirestore,
+  setupNotificationListeners,
+  cleanupNotificationListeners,
+  removeFCMTokenFromFirestore
+} from "./utils/notificationService";
 
 // Auth context to share user state
 type AuthContextType = { user: User | null };
@@ -31,15 +40,42 @@ export default function RootLayout() {
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
 
+  // ③ Setup notifications
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
+    const subscriptions = setupNotificationListeners();
+    
+    return () => {
+      cleanupNotificationListeners(subscriptions);
+    };
+  }, []);
+
+  // ④ Handle authentication and FCM token
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      
+      if (u) {
+        // User is signed in, register for notifications
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            await saveFCMTokenToFirestore(u.uid, token);
+            console.log('✅ User logged in and FCM token saved');
+          }
+        } catch (error) {
+          console.error('Error setting up notifications:', error);
+        }
+      } else {
+        // User logged out, remove FCM token
+        console.log('❌ User logged out');
+      }
+      
       if (initializing) setInitializing(false);
     });
     return unsubscribe;
   }, []);
 
-  // ③ Show splash/loading until fonts & auth are ready
+  // ⑤ Show splash/loading until fonts & auth are ready
   if (!fontsLoaded || initializing) {
     SplashScreen.preventAutoHideAsync();
     return (
@@ -50,7 +86,7 @@ export default function RootLayout() {
   }
   SplashScreen.hideAsync();
 
-  // ④ Provide auth context and render navigator
+  // ⑥ Provide auth context and render navigator
   return (
     <AuthContext.Provider value={{ user }}>
       <Stack>
@@ -64,7 +100,6 @@ export default function RootLayout() {
         <Stack.Screen name="add-class" options={{ headerShown: false }} />
         <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
         <Stack.Screen name="alerts/create-alert" options={{ headerShown: false }} />
-        <Slot />
       </Stack>
     </AuthContext.Provider>
   );
