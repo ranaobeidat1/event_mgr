@@ -7,12 +7,12 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
-  TextInput,
+  Alert,
 } from "react-native";
 import { router } from "expo-router";
 import { auth, db } from "../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
-import { collection, query, orderBy, onSnapshot, Timestamp } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, Timestamp, doc, deleteDoc } from "firebase/firestore";
 
 interface UserData {
   id: string;
@@ -34,24 +34,10 @@ export default function AlertsScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
-  const [filteredAlerts, setFilteredAlerts] = useState<AlertData[]>([]);
+  
   const [loadingAlerts, setLoadingAlerts] = useState(true);
   const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
-  const [searchQuery, setSearchQuery] = useState("");
-
-  // Filter alerts based on search query
-  useEffect(() => {
-    if (searchQuery.trim() === "") {
-      setFilteredAlerts(alerts);
-    } else {
-      const filtered = alerts.filter(alert => {
-        const titleMatch = alert.title?.toLowerCase().includes(searchQuery.toLowerCase());
-        const messageMatch = alert.message?.toLowerCase().includes(searchQuery.toLowerCase());
-        return titleMatch || messageMatch;
-      });
-      setFilteredAlerts(filtered);
-    }
-  }, [alerts, searchQuery]);
+  const [deletingAlerts, setDeletingAlerts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const checkUserRole = async () => {
@@ -121,6 +107,49 @@ export default function AlertsScreen() {
     }));
   };
 
+    const handleDeleteAlert = async (alertId: string, alertTitle?: string) => {
+    Alert.alert(
+      "מחיקת התראה",
+      `האם אתה בטוח שברצונך למחוק את ההתראה${alertTitle ? ` "${alertTitle}"` : ""}?`,
+      [
+        {
+          text: "ביטול",
+          style: "cancel"
+        },
+        {
+          text: "מחק",
+          style: "destructive",
+          onPress: async () => {
+            setDeletingAlerts(prev => ({ ...prev, [alertId]: true }));
+            try {
+              await deleteDoc(doc(db, "alerts", alertId));
+              console.log("Alert deleted successfully:", alertId);
+              Alert.alert("הצלחה", "ההתראה נמחקה בהצלחה");
+            } catch (error) {
+              console.error("Error deleting alert:", error);
+              Alert.alert("שגיאה", "אירעה שגיאה במחיקת ההתראה");
+            } finally {
+              setDeletingAlerts(prev => ({ ...prev, [alertId]: false }));
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleEditAlert = (alert: AlertData) => {
+    router.push({
+      pathname: "../alerts/edit-alert",
+      params: {
+        alertId: alert.id,
+        title: alert.title || "",
+        message: alert.message || "",
+        targetType: alert.targetType || "all",
+        targetCourseId: alert.targetCourseId || "",
+      }
+    });
+  };
+
   if (loadingUser || loadingAlerts) {
     return (
       <SafeAreaView className="flex-1 items-center justify-center bg-white gap-4">
@@ -146,65 +175,57 @@ export default function AlertsScreen() {
         </Text>
       </View>
 
-      {/* Search Box */}
-      <View className="px-4 mb-4">
-        <TextInput
-          className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
-          placeholder="חפש התראות..."
-          placeholderTextColor="#9CA3AF"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.trim() !== "" && (
-          <TouchableOpacity
-            className="absolute left-7 top-1/2 transform -translate-y-1/2"
-            onPress={() => setSearchQuery("")}
-          >
-            <Text className="text-gray-500 text-lg">×</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <ScrollView 
+       <ScrollView 
         className="flex-1 w-full"
         contentContainerStyle={{ 
           paddingBottom: isAdmin ? 120 : 20, 
           paddingTop: 10 
         }}
-      >
-        {filteredAlerts.length === 0 ? (
+       >
+        {alerts.length === 0 ? (
           <View className="flex-1 justify-center items-center px-4">
             <Text className="text-center text-gray-500 font-heebo-regular">
-              {searchQuery.trim() !== "" ? "לא נמצאו התראות התואמות לחיפוש" : "אין התראות עדיין"}
+              אין התראות עדיין
             </Text>
           </View>
         ) : (
-          <View className="px-4 space-y-6">
-            {/* Search Results Counter */}
-            {searchQuery.trim() !== "" && (
-              <View className="mb-2">
-                <Text className="text-sm text-gray-600 font-heebo-medium text-right">
-                  נמצאו {filteredAlerts.length} התראות
-                </Text>
-              </View>
-            )}
-            
-            {filteredAlerts.map((alert) => {
+          <View className="px-4">
+          
+            {alerts.map((alert) => {
               const isExpanded = expandedAlerts[alert.id];
               const messageNeedsTruncation = alert.message && alert.message.length > 150;
-
-              // Highlight search term in text
-              const highlightText = (text: string, query: string) => {
-                if (!query.trim()) return text;
-                const regex = new RegExp(`(${query})`, 'gi');
-                return text; // For now, just return text. We can add highlighting later if needed
-              };
+              const isDeleting = deletingAlerts[alert.id];
 
               return (
-                <View key={alert.id} className="bg-gray-50 p-4 rounded-xl shadow">
+                <View key={alert.id} className="bg-primary p-5 rounded-3xl shadow-lg mb-5">
+                  {/* Admin Actions */}
+                  {isAdmin && (
+                    <View className="flex-row justify-end mb-3 gap-2">
+                      <TouchableOpacity
+                        className="bg-green-600 px-5 py-2 rounded-full"
+                        onPress={() => handleEditAlert(alert)}
+                        disabled={isDeleting}
+                      >
+                        <Text className="text-white text-xl font-heebo-medium">עריכה</Text>
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        className="bg-red-500 px-5 py-2 rounded-full flex-row items-center"
+                        onPress={() => handleDeleteAlert(alert.id, alert.title)}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? (
+                          <ActivityIndicator size="small" color="white" />
+                        ) : (
+                          <Text className="text-white text-xl font-heebo-medium">מחק</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  
                   {/* Alert Title */}
                   {alert.title && alert.title.trim() !== '' && (
-                    <Text className="text-xl font-heebo-bold text-primary mb-2 text-right">
+                    <Text className="text-3xl font-heebo-bold text-white mb-2 text-right leading-relaxed">
                       {alert.title}
                     </Text>
                   )}
@@ -213,7 +234,7 @@ export default function AlertsScreen() {
                   {alert.message && alert.message.trim() !== '' && (
                     <View className="mb-3">
                       <Text
-                        className="text-base font-heebo-regular text-gray-800 text-right leading-relaxed"
+                        className="text-2xl font-heebo-regular text-white text-right leading-relaxed"
                         numberOfLines={isExpanded || !messageNeedsTruncation ? undefined : 3}
                       >
                         {alert.message}
@@ -223,7 +244,7 @@ export default function AlertsScreen() {
                           onPress={() => toggleReadMore(alert.id)}
                           className="mt-1 self-end"
                         >
-                          <Text className="text-primary font-heebo-medium">
+                          <Text className="text-yellow-400 font-heebo-medium">
                             {isExpanded ? 'הצג פחות' : 'קרא עוד'}
                           </Text>
                         </TouchableOpacity>
@@ -233,7 +254,7 @@ export default function AlertsScreen() {
 
                   {/* Alert Metadata */}
                   <View className="flex-row justify-between items-center mt-3">
-                    <Text className="text-xs text-gray-500 font-heebo-light text-left">
+                    <Text className="text-2xl text-gray-300 font-heebo-light text-left">
                       {formatDate(alert.createdAt)}
                     </Text>
                     
@@ -241,15 +262,15 @@ export default function AlertsScreen() {
                     {isAdmin && (
                       <View className="flex-row items-center">
                         {alert.notificationSent && (
-                          <View className="bg-green-100 px-2 py-1 rounded-full mr-2">
-                            <Text className="text-xs text-green-800 font-heebo-medium">
+                          <View className="bg-green-600 px-2 py-1 rounded-full mr-2">
+                            <Text className="text-xs text-white font-heebo-medium">
                               נשלח
                             </Text>
                           </View>
                         )}
                         {alert.targetType && (
-                          <View className="bg-blue-100 px-2 py-1 rounded-full">
-                            <Text className="text-xs text-blue-800 font-heebo-medium">
+                          <View className="bg-blue-500 px-2 py-1 rounded-full">
+                            <Text className="text-xs text-white font-heebo-medium">
                               {alert.targetType === 'all' ? 'כולם' : 'חוג ספציפי'}
                             </Text>
                           </View>
