@@ -1,5 +1,3 @@
-// app/(tabs)/_layout.tsx
-
 import React, { useEffect, useState } from "react";
 import {
   SafeAreaView,
@@ -7,13 +5,17 @@ import {
   Text,
   Image,
   ActivityIndicator,
+  TouchableOpacity,
 } from "react-native";
-import { Tabs } from "expo-router";
+import { Tabs, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { useAuth } from "../_layout";
 import { getUser, type UserData } from "../utils/firestoreUtils";
 
 export default function TabsLayout() {
+  const router = useRouter();
+  const { user } = useAuth();
+
   // 1) Load your fonts
   const [fontsLoaded] = useFonts({
     "Heebo-Thin":      require("../../assets/fonts/Heebo-Thin.ttf"),
@@ -28,10 +30,7 @@ export default function TabsLayout() {
     Tahoma:            require("../../assets/fonts/tahoma.ttf"),
   });
 
-  // 2) Get the Firebase User from context
-  const { user } = useAuth();
-
-  // 3) Fetch Firestore profile data (firstName, etc.)
+  // Firestore profile state
   const [profile, setProfile] = useState<UserData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
@@ -45,14 +44,14 @@ export default function TabsLayout() {
         const data = await getUser(user.uid);
         setProfile(data);
       } catch (err) {
-        console.error("Error loading profile:", err);
+        console.error(err);
       } finally {
         setLoadingProfile(false);
       }
     })();
   }, [user]);
 
-  // 4) Wait for fonts and profile load
+  // Loading state
   if (!fontsLoaded || loadingProfile) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#1A4782", justifyContent: "center", alignItems: "center" }}>
@@ -61,171 +60,108 @@ export default function TabsLayout() {
     );
   }
 
-  // 5) Derive display name from Firestore data
   const displayName = profile?.firstName ?? "משתמש";
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
-      {/* Blue header box */}
+      {/* Header */}
       <View
         style={{
           height: 75,
           backgroundColor: "#1A4782",
           flexDirection: "row",
           alignItems: "center",
-          justifyContent: "space-between",
-          paddingHorizontal: 20,
+          justifyContent: "center",
+          position: "relative",
         }}
       >
-        <Text
-          style={{
-            color: "#FFFFFF",
-            fontSize: 24,
-            fontFamily: "Heebo-Bold",
-          }}
-        >
-          שלום {displayName}!
-        </Text>
-        {/* White logo box */}
-        <View
-          style={{
-             position: 'absolute',
-            right: 0,
-            height: 75,
-            width: 90,
-            backgroundColor: "#FFFFFF",
-            justifyContent: "center",
-            alignItems: "center",
-          }}
+        {/* Profile button */}
+        <TouchableOpacity
+          onPress={() => router.push("/profile")}
+          style={{ position: "absolute", left: 20, width: 32, height: 32, justifyContent: "center", alignItems: "center" }}
         >
           <Image
-            source={require("../../assets/icons/logoIcon.png")}
-            style={{
-              width: "80%",
-              height: "80%",
-              resizeMode: "contain",
-            }}
+            source={require("../../assets/icons/User.png")}
+            style={{ width: "100%", height: "100%", resizeMode: "contain" }}
           />
+        </TouchableOpacity>
+
+        {/* Greeting */}
+        <Text style={{ color: "#FFFFFF", fontSize: 24, fontFamily: "Heebo-Bold" }}>
+          שלום {displayName}!
+        </Text>
+
+        {/* Logo */}
+        <View style={{ position: "absolute", right: 0, height: 75, width: 90, backgroundColor: "#FFFFFF", justifyContent: "center", alignItems: "center" }}>
+          <Image source={require("../../assets/icons/logoIcon.png")} style={{ width: "80%", height: "80%", resizeMode: "contain" }} />
         </View>
       </View>
 
-      {/* Tabs Navigator (unchanged) */}
+      {/* Tabs */}
       <Tabs
         screenOptions={{
-          tabBarItemStyle: {
-            justifyContent: "center",
-            alignItems: "center",
-          },
-          tabBarStyle: {
-            height: 90,
-            backgroundColor: "#1A4782",
-            position: "absolute",
-            bottom: 0,
-          },
+          tabBarItemStyle: { justifyContent: "center", alignItems: "center" },
+          tabBarStyle: { height: 90, backgroundColor: "#1A4782", position: "absolute", bottom: 0 },
         }}
       >
+        {/* Home */}
         <Tabs.Screen
           name="index"
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
-                    : ""
-                }`}
-              >
-                <Image
-                  source={require("../../assets/icons/Home.png")}
-                  className="w-12 h-12 mt-2"
-                  style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
-                />
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""}`}>
+                <Image source={require("../../assets/icons/Home.png")} className="w-12 h-12 mt-2" style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }} />
               </View>
             ),
-            tabBarLabel: () => (
-              <Text className="text-xl text-white font-heebo-bold mt-7">
-                בית
-              </Text>
-            ),
+            tabBarLabel: () => <Text className="text-xl text-white font-heebo-bold mt-7">בית</Text>,
           }}
         />
+        {/* Alerts */}
         <Tabs.Screen
           name="alerts"
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
-                    : ""
-                }`}
-              >
-                <Image
-                  source={require("../../assets/icons/bell.png")}
-                  className="w-12 h-12 mt-2"
-                  style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
-                />
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-2 rounded-full mt-8 w-14 h-14" : ""}`}>
+                <Image source={require("../../assets/icons/bell.png")} className="w-12 h-12 mt-2" style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }} />
               </View>
             ),
-            tabBarLabel: () => (
-              <Text className="text-xl text-white font-heebo-bold mt-7">
-                עדכונים
-              </Text>
-            ),
+            tabBarLabel: () => <Text className="text-xl text-white font-heebo-bold mt-7">עדכונים</Text>,
           }}
         />
+        {/* Classes */}
         <Tabs.Screen
           name="classes"
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
-                    : ""
-                }`}
-              >
-                <Image
-                  source={require("../../assets/icons/classIcon.png")}
-                  className="w-12 h-12 mt-2"
-                  style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
-                />
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""}`}>
+                <Image source={require("../../assets/icons/classIcon.png")} className="w-12 h-12 mt-2" style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }} />
               </View>
             ),
-            tabBarLabel: () => (
-              <Text className="text-xl text-white font-heebo-bold mt-7">
-                חוגים
-              </Text>
-            ),
+            tabBarLabel: () => <Text className="text-xl text-white font-heebo-bold mt-7">חוגים</Text>,
           }}
         />
+        {/* Gallery */}
         <Tabs.Screen
-          name="profile"
+          name="gallery"
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused
-                    ? "bg-white p-3 rounded-full mt-8 w-16 h-16"
-                    : ""
-                }`}
-              >
-                <Image
-                  source={require("../../assets/icons/User.png")}
-                  className="w-12 h-12 mt-2"
-                  style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
-                />
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""}`}>
+                <Image source={require("../../assets/icons/gallery.png")} className="w-12 h-12 mt-2" style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }} />
               </View>
             ),
-            tabBarLabel: () => (
-              <Text className="text-xl text-white font-heebo-bold mt-7">
-                פרופיל
-              </Text>
-            ),
+            tabBarLabel: () => <Text className="text-xl text-white font-heebo-bold mt-7">גלריה</Text>,
+          }}
+        />
+        {/* Hide default Profile */}
+        <Tabs.Screen
+          name="profile"
+          options={{
+            tabBarButton: () => null,
+            headerShown: false,
           }}
         />
       </Tabs>
