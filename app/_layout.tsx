@@ -1,15 +1,22 @@
 // app/_layout.tsx
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Stack } from "expo-router";
+import { Stack, SplashScreen } from "expo-router";
 import { useFonts } from "expo-font";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "../FirebaseConfig";
 import { View, ActivityIndicator } from "react-native";
-import * as SplashScreen from "expo-splash-screen";
 import "./global.css";
 
-// Notification utilities omitted for brevity
-// Auth context
+// Import notification functions
+import {
+  registerForPushNotificationsAsync,
+  saveFCMTokenToFirestore,
+  setupNotificationListeners,
+  cleanupNotificationListeners,
+  removeFCMTokenFromFirestore
+} from "./utils/notificationService";
+
+// Auth context to share user state
 type AuthContextType = { user: User | null };
 const AuthContext = createContext<AuthContextType>({ user: null });
 export const useAuth = () => useContext(AuthContext);
@@ -29,51 +36,70 @@ export default function RootLayout() {
     Tahoma: require("../assets/fonts/tahoma.ttf"),
   });
 
+  // ② Track auth state
   const [user, setUser] = useState<User | null>(null);
   const [initializing, setInitializing] = useState(true);
 
-  // Auth listener
+  // ③ Setup notifications
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (initializing) setInitializing(false);
-    });
-    return unsub;
+    const subscriptions = setupNotificationListeners();
+    
+    return () => {
+      cleanupNotificationListeners(subscriptions);
+    };
   }, []);
 
-  // Show splash/loading until fonts & auth are ready
+  // ④ Handle authentication and FCM token
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      
+      if (u) {
+        // User is signed in, register for notifications
+        try {
+          const token = await registerForPushNotificationsAsync();
+          if (token) {
+            await saveFCMTokenToFirestore(u.uid, token);
+            console.log('✅ User logged in and FCM token saved');
+          }
+        } catch (error) {
+          console.error('Error setting up notifications:', error);
+        }
+      } else {
+        // User logged out, remove FCM token
+        console.log('❌ User logged out');
+      }
+      
+      if (initializing) setInitializing(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  // ⑤ Show splash/loading until fonts & auth are ready
   if (!fontsLoaded || initializing) {
     SplashScreen.preventAutoHideAsync();
     return (
-      <View style={{ flex:1, justifyContent:"center", alignItems:"center" }}>
-        <ActivityIndicator size="large" />
+      <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
+        <ActivityIndicator size="large" color="#1A4782" />
       </View>
     );
   }
   SplashScreen.hideAsync();
 
+  // ⑥ Provide auth context and render navigator
   return (
     <AuthContext.Provider value={{ user }}>
       <Stack>
-        {!user ? (
-          // Unauthenticated routes
-          <>
-            <Stack.Screen name="login" options={{ headerShown: false }} />
-            <Stack.Screen name="register" options={{ headerShown: false }} />
-          </>
-        ) : (
-          // Authenticated routes
-          <>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen name="posts/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="posts/[id]/edit" options={{ headerShown: false }} />
-            <Stack.Screen name="posts/create" options={{ headerShown: false }} />
-            <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
-            <Stack.Screen name="add-class" options={{ headerShown: false }} />
-            <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
-            <Stack.Screen name="alerts/create-alert" options={{ headerShown: false }} />
-          </>
-        )}
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="register" options={{ headerShown: false }} />
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="posts/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="posts/[id]/edit" options={{ headerShown: false }} />
+        <Stack.Screen name="posts/create" options={{ headerShown: false }} />
+        <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="add-class" options={{ headerShown: false }} />
+        <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
+        <Stack.Screen name="alerts/create-alert" options={{ headerShown: false }} />
       </Stack>
     </AuthContext.Provider>
   );
