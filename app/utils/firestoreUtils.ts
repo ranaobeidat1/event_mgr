@@ -10,7 +10,7 @@ import {
     query, 
     where 
   } from 'firebase/firestore';
-  import { db } from '../FirebaseConfig';
+  import { db } from '../../FirebaseConfig';
   
   // User interface to define the structure
   export interface UserData {

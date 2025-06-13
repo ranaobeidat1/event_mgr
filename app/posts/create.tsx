@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
-import { db, auth, storage } from '../FirebaseConfig';
+import { db, auth, storage } from '../../FirebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import {
   ref as storageRef,

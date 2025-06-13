@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../FirebaseConfig';
+import { db, auth } from '../../FirebaseConfig';
 import { getUser } from '../utils/firestoreUtils';
 
 interface UserData { id: string; role?: string; }

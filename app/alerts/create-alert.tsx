@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
-import { db, auth } from '../FirebaseConfig';
+import { db, auth } from '../../FirebaseConfig';
 import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
 
 // Interface for notification recipients

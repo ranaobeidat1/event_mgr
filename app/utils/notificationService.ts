@@ -3,7 +3,7 @@ import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { db } from '../FirebaseConfig';
+import { db } from '../../FirebaseConfig';
 import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // Configure how notifications are handled when the app is in the foreground
@@ -51,7 +51,7 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     
     try {
       // Get project ID from your app config
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.manifest?.extra?.eas?.projectId;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
       if (!projectId) {
         throw new Error('Project ID not found');
       }

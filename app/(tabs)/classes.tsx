@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { Link } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
-import { auth, db } from "../FirebaseConfig";
+import { auth, db } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
 
 // Define interface for user data

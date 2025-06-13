@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db, auth } from './FirebaseConfig';
+import { db, auth } from '../FirebaseConfig';
 import { getUser, UserData } from './utils/firestoreUtils';
 
 interface RegistrationData {

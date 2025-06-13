@@ -10,7 +10,7 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
-import { db, auth } from "../FirebaseConfig";
+import { db, auth } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");

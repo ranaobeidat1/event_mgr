@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { SafeAreaView, View, Text, ActivityIndicator, ScrollView } from "react-native";
-import { db } from "../FirebaseConfig";
+import { db } from "../../FirebaseConfig";
 import { collection, query, orderBy, onSnapshot, limit } from "firebase/firestore";
 import type { Timestamp } from "firebase/firestore";
 

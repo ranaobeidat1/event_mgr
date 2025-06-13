@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp, writeBatch, deleteDoc } from 'firebase/firestore';
-import { db, auth } from '../FirebaseConfig';
+import { db, auth } from '../../FirebaseConfig';
 import { getUser, UserData } from '../utils/firestoreUtils';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');

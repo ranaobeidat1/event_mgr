@@ -18,7 +18,7 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { db } from '../../FirebaseConfig';
+import { db } from '../../../FirebaseConfig';
 
 interface PostData {
   title: string;

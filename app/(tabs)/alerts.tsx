@@ -10,7 +10,7 @@ import {
   Alert,
 } from "react-native";
 import { router } from "expo-router";
-import { auth, db } from "../FirebaseConfig";
+import { auth, db } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
 import { collection, query, orderBy, onSnapshot, Timestamp, doc, deleteDoc } from "firebase/firestore";
 

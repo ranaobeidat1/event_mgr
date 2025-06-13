@@ -1,7 +1,7 @@
 // app/(tabs)/profile.tsx
 import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native'
 import React, { useEffect, useState } from 'react'
-import { auth } from 'app/FirebaseConfig'
+import { auth } from '../FirebaseConfig'
 import { getUser } from './utils/firestoreUtils'
 import { signOut } from 'firebase/auth'
 import { router } from 'expo-router'

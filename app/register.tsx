@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
-import { auth, db } from './FirebaseConfig';
+import { auth, db } from '../FirebaseConfig';
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
