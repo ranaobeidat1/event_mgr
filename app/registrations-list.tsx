@@ -1,5 +1,5 @@
 // app/registrations-list.tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,10 +8,11 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
+  FlatList
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
+import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../FirebaseConfig';
 import { getUser, UserData } from './utils/firestoreUtils';
 
@@ -38,8 +39,8 @@ const RegistrationsList = () => {
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    const checkAdminAndFetchData = async () => {
+
+    const fetchRegistrations = useCallback(async () => {
       // Verify current user is admin
       const user = auth.currentUser;
       if (!user) {
@@ -48,7 +49,7 @@ const RegistrationsList = () => {
         return;
       }
 
-      try {
+      
         const userData = await getUser(user.uid) as UserData | null;
         if (userData?.role !== 'admin') {
           Alert.alert('גישה נדחתה', 'רק מנהלים רשאים לצפות בדף זה');
@@ -56,8 +57,8 @@ const RegistrationsList = () => {
           return;
         }
 
-        setIsAdmin(true);
-
+        setLoading(true);
+        try {
         // Fetch registrations for this course
         const registrationsRef = collection(db, 'Registrations');
         const q = query(registrationsRef, where('courseId', '==', courseId));
@@ -95,10 +96,67 @@ const RegistrationsList = () => {
       } finally {
         setLoading(false);
       }
-    };
+    }, [courseId]);
 
-    checkAdminAndFetchData();
-  }, [courseId]);
+    // useFocusEffect runs every time the screen comes into focus, ensuring data is fresh.
+    useFocusEffect(
+      useCallback(() => {
+        fetchRegistrations();
+      }, [fetchRegistrations])
+    );
+
+    const handleDeleteRegistration = (registrationId: string, userName: string) => {
+    Alert.alert(
+      "מחיקת הרשמה",
+      `האם אתה בטוח שברצונך למחוק את ההרשמה של ${userName}?`,
+      [
+        {
+          text: "ביטול",
+          style: "cancel"
+        },
+        {
+          text: "מחק",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              // Delete the document from Firestore
+              await deleteDoc(doc(db, "Registrations", registrationId));
+              
+              // Update the local state to remove the item from the list instantly
+              setRegistrations(prevRegistrations =>
+                prevRegistrations.filter(reg => reg.id !== registrationId)
+              );
+              
+              Alert.alert("הצלחה", "ההרשמה נמחקה בהצלחה.");
+            } catch (error) {
+              console.error("Error deleting registration:", error);
+              Alert.alert("שגיאה", "אירעה שגיאה במחיקת ההרשמה.");
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const renderItem = ({ item, index }: { item: RegistrationData, index: number }) => {
+    const fullName = `${item.firstName || ''} ${item.lastName || ''}`;
+    
+    return (
+      <View style={[styles.tableRow, index % 2 === 0 ? styles.evenRow : styles.oddRow]}>
+        <Text style={[styles.cell, styles.nameCell]}>{fullName}</Text>
+        <Text style={[styles.cell, styles.phoneCell]}>{item.phoneNumber || 'לא צוין'}</Text>
+        <Text style={[styles.cell, styles.emailCell]}>{item.email || 'לא צוין'}</Text>
+        <View style={styles.actionCell}>
+          <TouchableOpacity 
+            style={styles.deleteButton}
+            onPress={() => handleDeleteRegistration(item.id, fullName)}
+          >
+            <Text style={styles.deleteButtonText}>מחק</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   // Don't show anything until we've verified the user is an admin
   if (!isAdmin && loading) {
@@ -106,6 +164,7 @@ const RegistrationsList = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1A4782" />
+          <Text style={styles.loadingText}>מאמת הרשאות וטוען נתונים...</Text>
         </View>
       </SafeAreaView>
     );
@@ -113,136 +172,83 @@ const RegistrationsList = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={styles.backButtonText}>חזרה</Text>
+                    <Text style={styles.backButtonText}>חזרה</Text>
         </TouchableOpacity>
-
-        <View style={styles.headerContainer}>
-          <Text style={styles.headerTitle}>
-            רשימת נרשמים: {courseName}
-          </Text>
-          <Text style={styles.headerSubtitle}>
-            סה"כ נרשמים: {registrations.length}
-          </Text>
+        <View style={styles.headerTitles}>
+          <Text style={styles.headerTitle} numberOfLines={1}>נרשמים: {courseName}</Text>
+          <Text style={styles.headerSubtitle}>סה"כ: {registrations.length}</Text>
         </View>
-
-        {loading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#1A4782" />
-            <Text style={styles.loadingText}>טוען נרשמים...</Text>
+      </View>
+      
+      {registrations.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>אין נרשמים לחוג זה עדיין</Text>
+        </View>
+      ) : (
+        <View style={styles.listContainer}>
+          {/* Header row */}
+          <View style={styles.tableHeader}>
+            <Text style={[styles.headerCell, styles.nameCell]}>שם</Text>
+            <Text style={[styles.headerCell, styles.phoneCell]}>טלפון</Text>
+            <Text style={[styles.headerCell, styles.emailCell]}>אימייל</Text>
+            <Text style={[styles.headerCell, styles.actionCell]}>פעולות</Text>
           </View>
-        ) : (
-          <>
-            {registrations.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>אין נרשמים לחוג זה עדיין</Text>
-              </View>
-            ) : (
-              <View style={styles.registrationsContainer}>
-                {/* Header row */}
-                <View style={styles.tableHeader}>
-                  <Text style={[styles.headerCell, styles.nameCell]}>שם</Text>
-                  <Text style={[styles.headerCell, styles.phoneCell]}>טלפון</Text>
-                  <Text style={[styles.headerCell, styles.emailCell]}>אימייל</Text>
-                </View>
-
-                {/* Registrations rows */}
-                {registrations.map((registration, index) => {
-                  // Use firstName/lastName from registration if available, otherwise from userData
-                  const firstName = registration.firstName || registration.userData?.firstName || '';
-                  const lastName = registration.lastName || registration.userData?.lastName || '';
-                  const email = registration.email || registration.userData?.email || '';
-                  const phone = registration.phoneNumber || 'לא צוין';
-
-                  return (
-                    <View 
-                      key={registration.id} 
-                      style={[
-                        styles.tableRow,
-                        index % 2 === 0 ? styles.evenRow : styles.oddRow
-                      ]}
-                    >
-                      <Text style={[styles.cell, styles.nameCell]}>
-                        {firstName} {lastName}
-                      </Text>
-                      <Text style={[styles.cell, styles.phoneCell]}>
-                        {phone}
-                      </Text>
-                      <Text style={[styles.cell, styles.emailCell]}>
-                        {email}
-                      </Text>
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-          </>
-        )}
-      </ScrollView>
+          
+          {/* Registrations rows using FlatList */}
+          <FlatList
+            data={registrations}
+            renderItem={renderItem}
+            keyExtractor={(item) => item.id}
+          />
+        </View>
+      )}
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1, backgroundColor: '#f0f4f8' },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 10, fontSize: 16, color: '#1A4782', fontFamily: 'Heebo-Medium' },
+  header: {
+    paddingVertical: 15,
+    paddingHorizontal: 20,
     backgroundColor: '#fff',
-  },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  loadingContainer: {
-    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 200,
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: '#1A4782',
-    fontFamily: 'Heebo-Medium',
+    justifyContent: 'center', 
   },
   backButton: {
-    marginBottom: 20,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#1A4782',
-    fontFamily: 'Heebo-Medium',
-  },
-  headerContainer: {
-    marginBottom: 24,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontFamily: 'Heebo-Bold',
-    color: '#1A4782',
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  headerSubtitle: {
-    fontSize: 16,
-    fontFamily: 'Heebo-Medium',
-    color: '#666',
-    textAlign: 'center',
-  },
-  emptyContainer: {
-    padding: 30,
-    alignItems: 'center',
+    position: 'absolute',
+    right: 15,
+    top: 0,
+    bottom: 0,
     justifyContent: 'center',
-    backgroundColor: '#f8f8f8',
-    borderRadius: 12,
+    paddingHorizontal: 10,
   },
-  emptyText: {
-    fontSize: 16,
-    fontFamily: 'Heebo-Medium',
-    color: '#666',
+  backButtonText: { 
+    fontSize: 16, 
+    color: '#1A4782', 
+    fontFamily: 'Heebo-Medium' 
   },
-  registrationsContainer: {
+  headerTitles: { 
+    alignItems: 'center'
+  },
+  headerTitle: { 
+    fontSize: 22, 
+    fontFamily: 'Heebo-Bold', 
+    color: '#1A4782' 
+  },
+  headerSubtitle: { fontSize: 16, fontFamily: 'Heebo-Medium', color: '#666' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { fontSize: 16, fontFamily: 'Heebo-Medium', color: '#666' },
+  listContainer: {
+    flex: 1,
+    margin: 16,
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
@@ -251,7 +257,8 @@ const styles = StyleSheet.create({
   tableHeader: {
     flexDirection: 'row',
     backgroundColor: '#1A4782',
-    padding: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
   },
   headerCell: {
     color: 'white',
@@ -261,7 +268,9 @@ const styles = StyleSheet.create({
   },
   tableRow: {
     flexDirection: 'row',
-    padding: 12,
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#e0e0e0',
   },
@@ -277,13 +286,27 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   nameCell: {
-    flex: 3,
+    flex: 2.5,
   },
   phoneCell: {
     flex: 2,
   },
   emailCell: {
-    flex: 4,
+    flex: 3.5,
+  },
+  actionCell: { flex: 1.5, alignItems: 'center' },
+
+  // Styles for the delete button
+  deleteButton: {
+    backgroundColor: '#D9534F',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontFamily: 'Heebo-Bold',
+    fontSize: 12,
   },
 });
 
