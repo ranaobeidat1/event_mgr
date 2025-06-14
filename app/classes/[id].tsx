@@ -1,5 +1,5 @@
 // app/classes/[id].tsx
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
   Text, 
@@ -15,7 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { useLocalSearchParams, router } from 'expo-router';
+import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../FirebaseConfig';
 import { getUser, UserData } from '../utils/firestoreUtils';
@@ -53,9 +53,10 @@ const ClassDetails = () => {
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
-  useEffect(() => {
-    const fetchCourseData = async () => {
+
+    const fetchCourseData = useCallback(async () => {
       try {
+        if (!id) return;
         // Get course details
         const courseRef = doc(db, "courses", id as string);
         const courseSnap = await getDoc(courseRef);
@@ -111,10 +112,13 @@ const ClassDetails = () => {
       } finally {
         setLoading(false);
       }
-    };
+    }, [id]);
 
-    fetchCourseData();
-  }, [id]);
+      useFocusEffect(
+      useCallback(() => {
+        fetchCourseData();
+      }, [fetchCourseData])
+    );
 
   const handleDeleteClass = async () => {
     try {
@@ -211,7 +215,7 @@ const ClassDetails = () => {
       setIsRegistered(true);
       setUserRegistrationId(docRef.id);
       setRegistrationsCount(prev => prev + 1);
-      Alert.alert("ההרשמה הושלמה", "נרשמת בהצלחה לחוג");
+      Alert.alert("הצלחה", "הפרטים נשלחו בהצלחה");
     } catch (error) {
       console.error("Error registering for class:", error);
       Alert.alert("שגיאה", "אירעה שגיאה בהרשמה לחוג");
@@ -333,7 +337,7 @@ const ClassDetails = () => {
                 style={[styles.modalButton, styles.submitButton]}
                 onPress={handleRegistrationSubmit}
               >
-                <Text style={styles.modalButtonText}>שלח הרשמה</Text>
+                <Text style={styles.modalButtonText}>שלח פרטים</Text>
               </TouchableOpacity>
               
               <TouchableOpacity
@@ -414,34 +418,32 @@ const ClassDetails = () => {
           )}
           
           <View style={styles.infoContainer}>
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>תיאור</Text>
-              <Text style={styles.infoValue}>{courseData?.description}</Text>
-            </View>
-            
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>מיקום</Text>
-              <Text style={styles.infoValue}>{courseData?.location}</Text>
-            </View>
-            
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>ימים</Text>
-              <Text style={styles.infoValue}>{courseData?.schedule}</Text>
-            </View>
+              {/* The description can have its own style */}
+              <Text style={styles.descriptionText}>{courseData?.description}</Text>
 
-            {courseData?.payment && (
-              <View style={styles.infoItem}>
-                <Text style={styles.infoLabel}>תשלום</Text>
-                <Text style={styles.infoValue}>{courseData.payment}</Text>
-              </View>
-            )}
-            {isAdmin && (
-            <View style={styles.infoItem}>
-              <Text style={styles.infoLabel}>מקומות</Text>
-              <Text style={styles.infoValue}>{registrationsCount}/{courseData?.maxCapacity}</Text>
-            </View>)}
-          </View>
-          
+              {/* The details are now single lines */}
+              <Text style={styles.infoLine}>
+                <Text style={styles.infoLineLabel}>מיקום: </Text>{courseData?.location}
+              </Text>
+
+              <Text style={styles.infoLine}>
+                <Text style={styles.infoLineLabel}>ימים: </Text>{courseData?.schedule}
+              </Text>
+
+              {courseData?.payment && (
+                <Text style={styles.infoLine}>
+                  <Text style={styles.infoLineLabel}>תשלום: </Text>{courseData.payment}
+                </Text>
+              )}
+
+              {isAdmin && (
+                <Text style={styles.infoLine}>
+                  <Text style={styles.infoLineLabel}>מקומות: </Text>
+                  {registrationsCount}/{courseData?.maxCapacity}
+                </Text>
+              )}
+            </View>  
+
           {/* Only show registration button for regular users, not for admins */}
           {!isAdmin && (
             <>
@@ -457,7 +459,7 @@ const ClassDetails = () => {
                 <Text style={styles.registerButtonText}>
                   {isRegistered ? 'רשום כבר' : 
                   registrationsCount >= (courseData?.maxCapacity || 0) ? 'החוג מלא' : 
-                  registering ? 'מבצע הרשמה...' : 'הרשם לחוג'}
+                  registering ? 'שולח פרטים...' : 'השארת פרטי'}
                 </Text>
               </TouchableOpacity>
               
@@ -567,35 +569,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Heebo-Medium',
   },
   backButton: {
+    alignSelf: 'flex-end',
     marginBottom: 20,
   },
   backButtonText: {
-    fontSize: 16,
+    fontSize: 18,
     color: '#1A4782',
     fontFamily: 'Heebo-Medium',
   },
   headerContainer: {
     marginBottom: 16,
-    alignItems: 'center',
+    alignItems: 'flex-end',
   },
   headerTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontFamily: 'Heebo-Bold',
     color: '#1A4782',
-    textAlign: 'center',
+    textAlign: 'right',
   },
   imageGallery: {
+    marginHorizontal: -20,
     marginBottom: 20,
     maxHeight: 200,
   },
   imageContainer: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT,
+    height: 200,
   },
   galleryImage: {
-    width: SCREEN_WIDTH - 40,
-    height: 200,
-    borderRadius: 12,
+    width: SCREEN_WIDTH,
+    height: 200, 
   },
   modalContainer: {
     flex: 1,
@@ -620,28 +623,31 @@ const styles = StyleSheet.create({
     width: SCREEN_WIDTH,
     height: SCREEN_HEIGHT,
   },
-  infoContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
+  infoContainer: { 
     marginBottom: 24,
   },
-  infoItem: {
-    marginBottom: 16,
+  descriptionText: {
+  fontSize: 20,
+  fontFamily: 'Tahoma',
+  color: '#1A4782',
+  textAlign: 'right',
+  lineHeight: 24,
+  marginBottom: 16, // Space between description and details
   },
-  infoLabel: {
-    fontSize: 16,
-    fontFamily: 'Heebo-Bold',
-    color: '#1A4782',
-    marginBottom: 4,
+
+  infoLine: {
+    fontSize: 20,
+    fontFamily: 'Tahoma',
+    color: '#1F2937',
     textAlign: 'right',
+    marginBottom: 8, // Space between each line
   },
-  infoValue: {
-    fontSize: 16,
-    fontFamily: 'Heebo-Regular',
-    color: '#333',
-    textAlign: 'right',
+
+  infoLineLabel: {
+    fontFamily: 'Tahoma', // Make the label part bold
+    color: '#1A4782',       // Use the primary color
   },
+
   registerButton: {
     backgroundColor: '#1A4782',
     borderRadius: 30,
@@ -738,7 +744,7 @@ const styles = StyleSheet.create({
   },
   modalButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: 'Heebo-Bold',
   },
   cancelButton: {
