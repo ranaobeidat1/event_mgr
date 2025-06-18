@@ -1,6 +1,6 @@
 // Update your FirebaseConfig.tsx to add Firebase Storage
 import { initializeApp } from "firebase/app";
-import { initializeAuth } from "firebase/auth";
+import { initializeAuth,sendPasswordResetEmail } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
@@ -19,5 +19,8 @@ const app = initializeApp(firebaseConfig);
 const auth = initializeAuth(app);
 const db = getFirestore(app);
 const storage = getStorage(app);
-
+export async function forgotPassword(email: string): Promise<void> {
+  if (!email) throw new Error("Email is required to reset password.");
+  await sendPasswordResetEmail(auth, email);
+}
 export { app, auth, db, storage };
