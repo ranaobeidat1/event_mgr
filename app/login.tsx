@@ -1,4 +1,3 @@
-// app/login.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -25,11 +24,10 @@ export default function LoginScreen() {
   const fieldAnims = [
     useRef(new Animated.Value(0)).current, // email
     useRef(new Animated.Value(0)).current, // password
-    useRef(new Animated.Value(0)).current, // button + link
+    useRef(new Animated.Value(0)).current, // button + links
   ];
 
   const { height } = Dimensions.get('window');
-  // initial offset so logo starts centered, then moves to its spot at top (~60px)
   const logoTranslateY = logoAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [height / 2 - 120, 0],
@@ -62,7 +60,6 @@ export default function LoginScreen() {
       .catch(err => setError(err.message));
   };
 
-  // helper for fields animation
   const interpY = (anim: Animated.Value) =>
     anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] });
 
@@ -80,7 +77,6 @@ export default function LoginScreen() {
             paddingTop: 60,
           }}
         >
-          {/* logo pops in from center to top */}
           <Animated.Image
             source={require('../assets/icons/logoIcon.png')}
             style={{
@@ -93,7 +89,6 @@ export default function LoginScreen() {
           />
 
           <View className="w-full">
-            {/* email field */}
             <Animated.View
               style={{
                 opacity: fieldAnims[0],
@@ -111,7 +106,6 @@ export default function LoginScreen() {
               />
             </Animated.View>
 
-            {/* password field */}
             <Animated.View
               style={{
                 opacity: fieldAnims[1],
@@ -128,7 +122,6 @@ export default function LoginScreen() {
               />
             </Animated.View>
 
-            {/* button */}
             <Animated.View
               style={{
                 opacity: fieldAnims[2],
@@ -153,6 +146,15 @@ export default function LoginScreen() {
                   <TouchableOpacity>
                     <Text className="text-primary font-Heebo-Bold text-lg">
                       להרשמה
+                    </Text>
+                  </TouchableOpacity>
+                </Link>
+              </View>
+              <View className="flex-row justify-center mt-2">
+                <Link href="/forgot-password" asChild>
+                  <TouchableOpacity>
+                    <Text className="text-primary font-Heebo-Regular text-lg underline">
+                      שכחת סיסמה?
                     </Text>
                   </TouchableOpacity>
                 </Link>
