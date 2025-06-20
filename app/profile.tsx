@@ -24,8 +24,7 @@ import {
 } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
 
-// Force RTL layout for this screen
-I18nManager.forceRTL(true)
+
 
 const WHATSAPP_URL =
   'https://api.whatsapp.com/send/?phone=0533551455&text=%D7%A9%D7%9C%D7%95%D7%9D%2C+%D7%91%D7%90%D7%AA%D7%99+%D7%93%D7%A8%D7%9A+%D7%94%D7%90%D7%AA%D7%A8&type=phone_number&app_absent=0'

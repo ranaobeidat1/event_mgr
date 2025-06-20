@@ -1,10 +1,10 @@
 // app/_layout.tsx
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useEffect, useState, } from "react";
 import { Stack, SplashScreen } from "expo-router";
 import { useFonts } from "expo-font";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "../FirebaseConfig";
-import { View, ActivityIndicator } from "react-native";
+import { View, ActivityIndicator,I18nManager, } from "react-native";
 import "./global.css";
 
 // Import notification functions
@@ -15,7 +15,8 @@ import {
   cleanupNotificationListeners,
   removeFCMTokenFromFirestore
 } from "./utils/notificationService";
-
+I18nManager.allowRTL(false);
+I18nManager.forceRTL(false);
 // Auth context to share user state
 type AuthContextType = { user: User | null };
 const AuthContext = createContext<AuthContextType>({ user: null });
