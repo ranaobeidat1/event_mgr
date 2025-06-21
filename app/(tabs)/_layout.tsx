@@ -17,12 +17,14 @@ import { getUser, type UserData } from "../utils/firestoreUtils";
 
 // --- Notification setup imports ---
 import * as Notifications from "expo-notifications";
-import { auth, db } from "../../FirebaseConfig";
+import { auth, db } from "../../FirebaseConfig"; // 🔄 Updated import
 import { doc, setDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth"; // 🔄 Needed for login persistence
 // --- End notification setup imports ---
+
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
-// Handle incoming notifications when app is foregrounded
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -31,7 +33,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Create Android notification channel (required on Android 8+)
 async function createAndroidChannel() {
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
@@ -42,7 +43,6 @@ async function createAndroidChannel() {
   }
 }
 
-// Register for push, get Expo token, and save it in Firestore
 async function registerForPush() {
   const { status } = await Notifications.requestPermissionsAsync();
   if (status !== "granted") return;
@@ -60,27 +60,36 @@ async function registerForPush() {
 
 export default function TabsLayout() {
   const router = useRouter();
-  const { user, isGuest, setIsGuest } = useAuth();
+  const { user: authUser, isGuest, setIsGuest } = useAuth();
 
-  // Load custom fonts
+  // ➕ Add persistent login tracking
+  const [user, setUser] = useState(authUser ?? null);
+  const [initializing, setInitializing] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (usr) => {
+      if (usr) setUser(usr);
+      setInitializing(false);
+    });
+    return unsubscribe;
+  }, []);
+
   const [fontsLoaded] = useFonts({
-    "Heebo-Thin":       require("../../assets/fonts/Heebo-Thin.ttf"),
+    "Heebo-Thin": require("../../assets/fonts/Heebo-Thin.ttf"),
     "Heebo-ExtraLight": require("../../assets/fonts/Heebo-ExtraLight.ttf"),
-    "Heebo-Light":      require("../../assets/fonts/Heebo-Light.ttf"),
-    "Heebo-Regular":    require("../../assets/fonts/Heebo-Regular.ttf"),
-    "Heebo-Medium":     require("../../assets/fonts/Heebo-Medium.ttf"),
-    "Heebo-SemiBold":   require("../../assets/fonts/Heebo-SemiBold.ttf"),
-    "Heebo-Bold":       require("../../assets/fonts/Heebo-Bold.ttf"),
-    "Heebo-ExtraBold":  require("../../assets/fonts/Heebo-ExtraBold.ttf"),
-    "Heebo-Black":      require("../../assets/fonts/Heebo-Black.ttf"),
-    Tahoma:             require("../../assets/fonts/tahoma.ttf"),
+    "Heebo-Light": require("../../assets/fonts/Heebo-Light.ttf"),
+    "Heebo-Regular": require("../../assets/fonts/Heebo-Regular.ttf"),
+    "Heebo-Medium": require("../../assets/fonts/Heebo-Medium.ttf"),
+    "Heebo-SemiBold": require("../../assets/fonts/Heebo-SemiBold.ttf"),
+    "Heebo-Bold": require("../../assets/fonts/Heebo-Bold.ttf"),
+    "Heebo-ExtraBold": require("../../assets/fonts/Heebo-ExtraBold.ttf"),
+    "Heebo-Black": require("../../assets/fonts/Heebo-Black.ttf"),
+    Tahoma: require("../../assets/fonts/tahoma.ttf"),
   });
 
-  // Fetch user profile
   const [profile, setProfile] = useState<UserData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
-  
-  // When a user is authenticated (not guest), set up notifications
+
   useEffect(() => {
     if (user && !isGuest) {
       createAndroidChannel();
@@ -90,16 +99,15 @@ export default function TabsLayout() {
 
   useEffect(() => {
     if (isGuest) {
-      // For guest users, we don't need to fetch a profile
       setLoadingProfile(false);
       return;
     }
-    
+
     if (!user) {
       setLoadingProfile(false);
       return;
     }
-    
+
     (async () => {
       try {
         const data = await getUser(user.uid);
@@ -112,8 +120,7 @@ export default function TabsLayout() {
     })();
   }, [user, isGuest]);
 
-  // Show loading screen until fonts & profile are ready
-  if (!fontsLoaded || loadingProfile) {
+  if (!fontsLoaded || loadingProfile || initializing) {
     return (
       <SafeAreaView
         style={{
@@ -128,10 +135,8 @@ export default function TabsLayout() {
     );
   }
 
-  // Determine display name based on user status
-  const displayName = isGuest ? "אורח" : (profile?.firstName ?? "משתמש");
-  
-  // Function to handle restricted feature access for guests
+  const displayName = isGuest ? "אורח" : profile?.firstName ?? "משתמש";
+
   const handleRestrictedFeature = () => {
     if (isGuest) {
       Alert.alert(
@@ -143,19 +148,18 @@ export default function TabsLayout() {
             onPress: () => {
               setIsGuest(false);
               router.replace("/register");
-            }
+            },
           },
           {
             text: "ביטול",
-            style: "cancel"
-          }
+            style: "cancel",
+          },
         ]
       );
       return true;
     }
     return false;
   };
-
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -192,12 +196,8 @@ export default function TabsLayout() {
             style={{ width: "100%", height: "100%", resizeMode: "contain" }}
           />
         </TouchableOpacity>
-        
-        <Text style={{ 
-          color: "#FFFFFF", 
-          fontSize: 24, 
-          fontFamily: "Heebo-Bold" 
-        }}>
+
+        <Text style={{ color: "#FFFFFF", fontSize: 24, fontFamily: "Heebo-Bold" }}>
           שלום {displayName}!
         </Text>
         <View
@@ -222,15 +222,14 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           tabBarItemStyle: { justifyContent: "center", alignItems: "center" },
-          tabBarStyle: { 
-            height: 90, 
-            backgroundColor: "#1A4782", 
-            position: "absolute", 
-            bottom: 0 
+          tabBarStyle: {
+            height: 90,
+            backgroundColor: "#1A4782",
+            position: "absolute",
+            bottom: 0,
           },
         }}
       >
-        {/* Home */}
         <Tabs.Screen
           name="index"
           options={{
@@ -253,7 +252,6 @@ export default function TabsLayout() {
             ),
           }}
         />
-        {/* Alerts */}
         <Tabs.Screen
           name="alerts"
           options={{
@@ -276,7 +274,6 @@ export default function TabsLayout() {
             ),
           }}
         />
-        {/* Classes */}
         <Tabs.Screen
           name="classes"
           options={{
@@ -299,7 +296,6 @@ export default function TabsLayout() {
             ),
           }}
         />
-        {/* Gallery */}
         <Tabs.Screen
           name="gallery"
           options={{
@@ -322,7 +318,6 @@ export default function TabsLayout() {
             ),
           }}
         />
-        {/* Hide default Profile */}
         <Tabs.Screen
           name="profile"
           options={{

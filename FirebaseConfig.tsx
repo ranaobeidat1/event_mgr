@@ -1,9 +1,9 @@
 // Update your FirebaseConfig.tsx to add Firebase Storage
 import { initializeApp } from "firebase/app";
-import { initializeAuth,sendPasswordResetEmail } from "firebase/auth";
+import { initializeAuth,sendPasswordResetEmail,getReactNativePersistence  } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
-
+import AsyncStorage from "@react-native-async-storage/async-storage";
 const firebaseConfig = {
   apiKey: "AIzaSyCkL3MCILFGcZCjnZcO9Hb-z2CfpZVkPQ8",
   authDomain: "sahlab-fc516.firebaseapp.com",
@@ -16,7 +16,9 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const auth = initializeAuth(app);
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage),
+});
 const db = getFirestore(app);
 const storage = getStorage(app);
 export async function forgotPassword(email: string): Promise<void> {
