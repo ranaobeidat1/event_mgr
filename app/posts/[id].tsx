@@ -19,6 +19,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../FirebaseConfig';
 import { getUser } from '../utils/firestoreUtils';
+import { useAuth } from '../_layout';
 
 interface UserData { id: string; role?: string; }
 interface PostData { title: string; content: string; images?: string[]; authorId: string; createdAt?: any; }
@@ -26,6 +27,7 @@ interface PostData { title: string; content: string; images?: string[]; authorId
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function PostDetails() {
+  const { isGuest, setIsGuest } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   // Don’t fetch until the router gives us an id
@@ -62,10 +64,15 @@ export default function PostDetails() {
         }
         setPostData(snap.data() as PostData);
 
-        const user = auth.currentUser;
-        if (user) {
-          const u = (await getUser(user.uid)) as UserData;
-          setIsAdmin(u.role === 'admin');
+        // Skip admin check for guest users
+        if (isGuest) {
+          setIsAdmin(false);
+        } else {
+          const user = auth.currentUser;
+          if (user) {
+            const u = (await getUser(user.uid)) as UserData;
+            setIsAdmin(u.role === 'admin');
+          }
         }
       } catch {
         Alert.alert('שגיאה', 'אירעה שגיאה בטעינת הפוסט');
@@ -73,7 +80,7 @@ export default function PostDetails() {
         setLoading(false);
       }
     })();
-  }, [id]);
+  }, [id, isGuest]);
 
   const confirmDelete = () =>
     Alert.alert('מחק פוסט?', 'האם למחוק את הפוסט הזה?', [

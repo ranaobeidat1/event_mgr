@@ -7,7 +7,8 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Platform,
-  I18nManager ,
+  I18nManager,
+  Alert,
 } from "react-native";
 import { Tabs, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
@@ -59,15 +60,7 @@ async function registerForPush() {
 
 export default function TabsLayout() {
   const router = useRouter();
-  const { user } = useAuth();
-
-  // When a user is authenticated, set up notifications
-  useEffect(() => {
-    if (user) {
-      createAndroidChannel();
-      registerForPush();
-    }
-  }, [user]);
+  const { user, isGuest, setIsGuest } = useAuth();
 
   // Load custom fonts
   const [fontsLoaded] = useFonts({
@@ -86,11 +79,27 @@ export default function TabsLayout() {
   // Fetch user profile
   const [profile, setProfile] = useState<UserData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
+  
+  // When a user is authenticated (not guest), set up notifications
   useEffect(() => {
+    if (user && !isGuest) {
+      createAndroidChannel();
+      registerForPush();
+    }
+  }, [user, isGuest]);
+
+  useEffect(() => {
+    if (isGuest) {
+      // For guest users, we don't need to fetch a profile
+      setLoadingProfile(false);
+      return;
+    }
+    
     if (!user) {
       setLoadingProfile(false);
       return;
     }
+    
     (async () => {
       try {
         const data = await getUser(user.uid);
@@ -101,7 +110,7 @@ export default function TabsLayout() {
         setLoadingProfile(false);
       }
     })();
-  }, [user]);
+  }, [user, isGuest]);
 
   // Show loading screen until fonts & profile are ready
   if (!fontsLoaded || loadingProfile) {
@@ -119,7 +128,34 @@ export default function TabsLayout() {
     );
   }
 
-  const displayName = profile?.firstName ?? "משתמש";
+  // Determine display name based on user status
+  const displayName = isGuest ? "אורח" : (profile?.firstName ?? "משתמש");
+  
+  // Function to handle restricted feature access for guests
+  const handleRestrictedFeature = () => {
+    if (isGuest) {
+      Alert.alert(
+        "מגבלת גישה",
+        "הגישה למאפיין זה מוגבלת לחשבונות רשומים בלבד. האם ברצונך להירשם?",
+        [
+          {
+            text: "הירשם",
+            onPress: () => {
+              setIsGuest(false);
+              router.replace("/register");
+            }
+          },
+          {
+            text: "ביטול",
+            style: "cancel"
+          }
+        ]
+      );
+      return true;
+    }
+    return false;
+  };
+
 
   return (
     <SafeAreaView style={{ flex: 1 }}>
@@ -135,7 +171,13 @@ export default function TabsLayout() {
         }}
       >
         <TouchableOpacity
-          onPress={() => router.push("/profile")}
+          onPress={() => {
+            if (isGuest) {
+              handleRestrictedFeature();
+            } else {
+              router.push("/profile");
+            }
+          }}
           style={{
             position: "absolute",
             left: 20,
@@ -150,7 +192,12 @@ export default function TabsLayout() {
             style={{ width: "100%", height: "100%", resizeMode: "contain" }}
           />
         </TouchableOpacity>
-        <Text style={{ color: "#FFFFFF", fontSize: 24, fontFamily: "Heebo-Bold" }}>
+        
+        <Text style={{ 
+          color: "#FFFFFF", 
+          fontSize: 24, 
+          fontFamily: "Heebo-Bold" 
+        }}>
           שלום {displayName}!
         </Text>
         <View
@@ -175,7 +222,12 @@ export default function TabsLayout() {
       <Tabs
         screenOptions={{
           tabBarItemStyle: { justifyContent: "center", alignItems: "center" },
-          tabBarStyle: { height: 90, backgroundColor: "#1A4782", position: "absolute", bottom: 0 },
+          tabBarStyle: { 
+            height: 90, 
+            backgroundColor: "#1A4782", 
+            position: "absolute", 
+            bottom: 0 
+          },
         }}
       >
         {/* Home */}

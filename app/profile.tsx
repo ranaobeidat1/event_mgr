@@ -83,6 +83,8 @@ const Profile = () => {
       setEditModalVisible(true)
     } else if (key === 'כניסה ואבטחה') {
       setPasswordModalVisible(true)
+    } else if (key === 'ניהול משתמשים') {
+      router.push('/users')
     }
   }
 
@@ -94,11 +96,18 @@ const Profile = () => {
     )
   }
 
+  // Check if the user is an admin to show admin-specific options
+  const isAdmin = userData?.role === "admin";
+
   const sections = [
     [
       { label: 'מידע אישי', icon: <MaterialIcons name="person-outline" size={24}/> },
       { label: 'כניסה ואבטחה', icon: <MaterialIcons name="security" size={24}/> },
     ],
+    // Show admin section only for admin users
+    ...(isAdmin ? [[
+      { label: 'ניהול משתמשים', icon: <MaterialIcons name="people" size={24}/> },
+    ]] : []),
     [
       { label: 'צור קשר', icon: <MaterialIcons name="message" size={24}/> },
     ],

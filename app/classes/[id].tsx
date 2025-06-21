@@ -19,6 +19,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp, writeBatch, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../FirebaseConfig';
 import { getUser, UserData } from '../utils/firestoreUtils';
+import { useAuth } from '../_layout';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ interface CourseData {
 }
 
 const ClassDetails = () => {
+  const { isGuest, setIsGuest } = useAuth();
   const { id } = useLocalSearchParams();
   const [courseData, setCourseData] = useState<CourseData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -64,33 +66,39 @@ const ClassDetails = () => {
         if (courseSnap.exists()) {
           setCourseData(courseSnap.data() as CourseData);
           
-          // Check current user
-          const user = auth.currentUser;
-          if (user) {
-            // Check if user is admin
-            const userData = await getUser(user.uid) as UserData;
-            setIsAdmin(userData?.role === "admin");
-            
-            // Pre-fill user data if available
-            if (userData) {
-              setFirstName(userData.firstName || '');
-              setLastName(userData.lastName || '');
-            }
-            
-            // Check if current user is registered (only for non-admin users)
-            if (userData?.role !== "admin") {
-              const registrationsRef = collection(db, "Registrations");
-              const q = query(
-                registrationsRef, 
-                where("userId", "==", user.uid),
-                where("courseId", "==", id)
-              );
-              const querySnapshot = await getDocs(q);
-              setIsRegistered(!querySnapshot.empty);
+          // Skip user-specific checks for guest users
+          if (isGuest) {
+            setIsAdmin(false);
+            setIsRegistered(false);
+          } else {
+            // Check current user
+            const user = auth.currentUser;
+            if (user) {
+              // Check if user is admin
+              const userData = await getUser(user.uid) as UserData;
+              setIsAdmin(userData?.role === "admin");
               
-              // Store the registration document ID if user is registered
-              if (!querySnapshot.empty) {
-                setUserRegistrationId(querySnapshot.docs[0].id);
+              // Pre-fill user data if available
+              if (userData) {
+                setFirstName(userData.firstName || '');
+                setLastName(userData.lastName || '');
+              }
+              
+              // Check if current user is registered (only for non-admin users)
+              if (userData?.role !== "admin") {
+                const registrationsRef = collection(db, "Registrations");
+                const q = query(
+                  registrationsRef, 
+                  where("userId", "==", user.uid),
+                  where("courseId", "==", id)
+                );
+                const querySnapshot = await getDocs(q);
+                setIsRegistered(!querySnapshot.empty);
+                
+                // Store the registration document ID if user is registered
+                if (!querySnapshot.empty) {
+                  setUserRegistrationId(querySnapshot.docs[0].id);
+                }
               }
             }
           }
@@ -112,7 +120,7 @@ const ClassDetails = () => {
       } finally {
         setLoading(false);
       }
-    }, [id]);
+    }, [id, isGuest]);
 
       useFocusEffect(
       useCallback(() => {
@@ -158,6 +166,28 @@ const ClassDetails = () => {
 
   const handleRegistration = async () => {
     if (isAdmin) {
+      return;
+    }
+    
+    if (isGuest) {
+      // Prompt guest to register
+      Alert.alert(
+        "דרושה הרשמה",
+        "עליך להירשם כדי להצטרף לחוג",
+        [
+          {
+            text: "הירשם",
+            onPress: () => {
+              setIsGuest(false);
+              router.replace("/register");
+            }
+          },
+          {
+            text: "ביטול",
+            style: "cancel"
+          }
+        ]
+      );
       return;
     }
     

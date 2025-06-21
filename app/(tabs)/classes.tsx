@@ -8,10 +8,11 @@ import {
   TouchableOpacity,
   TextInput 
 } from "react-native";
-import { Link } from "expo-router";
+import { Link, useRouter } from "expo-router";
 import { collection, getDocs } from "firebase/firestore";
 import { auth, db } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
+import { useAuth } from "../_layout";
 
 // Define interface for user data
 interface UserData {
@@ -34,6 +35,7 @@ interface ClassData {
 }
 
 export default function Index() {
+  const { isGuest } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [filteredClasses, setFilteredClasses] = useState<ClassData[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -59,14 +61,16 @@ export default function Index() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Check if current user is admin
-        const user = auth.currentUser;
-        if (user) {
-          const userData = await getUser(user.uid) as UserData;
-          setIsAdmin(userData?.role === "admin");
+        // Check if current user is admin (only for authenticated users, not guests)
+        if (!isGuest) {
+          const user = auth.currentUser;
+          if (user) {
+            const userData = await getUser(user.uid) as UserData;
+            setIsAdmin(userData?.role === "admin");
+          }
         }
 
-        // Fetch classes from Firestore
+        // Fetch classes from Firestore (both guests and authenticated users can see classes)
         const querySnapshot = await getDocs(collection(db, "courses"));
         const coursesList = querySnapshot.docs.map(doc => ({
           id: doc.id,
@@ -87,7 +91,7 @@ export default function Index() {
     };
 
     fetchData();
-  }, []);
+  }, [isGuest]);
 
   if (loading) {
     return (

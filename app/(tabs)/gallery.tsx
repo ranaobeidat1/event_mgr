@@ -12,6 +12,7 @@ import { router } from "expo-router";
 import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
 import { db, auth } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
+import { useAuth } from "../_layout";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -191,10 +192,12 @@ const PostItem = ({ item }: { item: Post }) => {
 };
 
 export default function PostsScreen() {
+  const { isGuest } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // Set up posts listener (available to both guests and authenticated users)
     const postsQuery = query(
       collection(db, "posts"),
       orderBy("createdAt", "desc")
@@ -205,16 +208,22 @@ export default function PostsScreen() {
       );
     });
 
-    (async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const userData = (await getUser(user.uid));
-        setIsAdmin(userData?.role === "admin");
-      }
-    })();
+    // Only check for admin status if not a guest
+    if (!isGuest) {
+      (async () => {
+        const user = auth.currentUser;
+        if (user) {
+          const userData = (await getUser(user.uid));
+          setIsAdmin(userData?.role === "admin");
+        }
+      })();
+    } else {
+      // Reset admin status for guests
+      setIsAdmin(false);
+    }
 
     return unsubscribe;
-  }, []);
+  }, [isGuest]);
 
   const ListEmptyComponent = () => (
     <View className="flex-1 items-center justify-center mt-20">

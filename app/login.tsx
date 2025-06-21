@@ -14,8 +14,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import { auth } from '../FirebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
+import { useAuth } from './_layout';
 
 export default function LoginScreen() {
+  const { setIsGuest } = useAuth();
   const [email, setEmail]       = useState('');
   const [password, setPassword] = useState('');
   const [error, setError]       = useState<string | null>(null);
@@ -25,6 +27,7 @@ export default function LoginScreen() {
     useRef(new Animated.Value(0)).current, // email
     useRef(new Animated.Value(0)).current, // password
     useRef(new Animated.Value(0)).current, // button + links
+    useRef(new Animated.Value(0)).current, // guest button
   ];
 
   const { height } = Dimensions.get('window');
@@ -58,6 +61,13 @@ export default function LoginScreen() {
     signInWithEmailAndPassword(auth, email.trim(), password)
       .then(() => router.replace('/(tabs)'))
       .catch(err => setError(err.message));
+  };
+  
+  const handleGuestLogin = () => {
+    // Enable guest mode
+    setIsGuest(true);
+    // Navigate to tabs
+    router.replace('/(tabs)');
   };
 
   const interpY = (anim: Animated.Value) =>
@@ -159,6 +169,24 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </Link>
               </View>
+            </Animated.View>
+            
+            {/* Guest Mode Button */}
+            <Animated.View
+              style={{
+                opacity: fieldAnims[3],
+                transform: [{ translateY: interpY(fieldAnims[3]) }],
+                marginTop: 20,
+              }}
+            >
+              <TouchableOpacity
+                onPress={handleGuestLogin}
+                className="bg-gray-400 rounded-full px-4 py-3 items-center w-2/3 self-center"
+              >
+                <Text className="text-white text-xl font-Heebo-Bold">
+                  המשך כאורח
+                </Text>
+              </TouchableOpacity>
             </Animated.View>
           </View>
         </ScrollView>

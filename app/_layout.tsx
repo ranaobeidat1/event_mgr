@@ -4,7 +4,7 @@ import { Stack, SplashScreen } from "expo-router";
 import { useFonts } from "expo-font";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "../FirebaseConfig";
-import { View, ActivityIndicator,I18nManager, } from "react-native";
+import { View, ActivityIndicator, I18nManager, } from "react-native";
 import "./global.css";
 
 // Import notification functions
@@ -15,11 +15,21 @@ import {
   cleanupNotificationListeners,
   removeFCMTokenFromFirestore
 } from "./utils/notificationService";
+
+
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 // Auth context to share user state
-type AuthContextType = { user: User | null };
-const AuthContext = createContext<AuthContextType>({ user: null });
+type AuthContextType = { 
+  user: User | null;
+  isGuest: boolean;
+  setIsGuest: (value: boolean) => void;
+};
+const AuthContext = createContext<AuthContextType>({ 
+  user: null, 
+  isGuest: false,
+  setIsGuest: () => {},
+});
 export const useAuth = () => useContext(AuthContext);
 
 export default function RootLayout() {
@@ -39,19 +49,29 @@ export default function RootLayout() {
 
   // ② Track auth state
   const [user, setUser] = useState<User | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
-  // ③ Setup notifications
+  // ③ Setup notifications (only for authenticated users, not guests)
   useEffect(() => {
+    // Skip notification setup for guest users
+    if (isGuest) return;
+
     const subscriptions = setupNotificationListeners();
     
     return () => {
       cleanupNotificationListeners(subscriptions);
     };
-  }, []);
+  }, [isGuest]);
 
   // ④ Handle authentication and FCM token
   useEffect(() => {
+    // Skip auth state change handling if in guest mode
+    if (isGuest) {
+      if (initializing) setInitializing(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       
@@ -74,7 +94,7 @@ export default function RootLayout() {
       if (initializing) setInitializing(false);
     });
     return unsubscribe;
-  }, []);
+  }, [isGuest]);
 
   // ⑤ Show splash/loading until fonts & auth are ready
   if (!fontsLoaded || initializing) {
@@ -89,11 +109,11 @@ export default function RootLayout() {
 
   // ⑥ Provide auth context and render navigator
   return (
-    <AuthContext.Provider value={{ user }}>
+    <AuthContext.Provider value={{ user, isGuest, setIsGuest }}>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-         <Stack.Screen name="profile" options={{ headerShown: false }} />
+        <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="register" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
@@ -104,6 +124,7 @@ export default function RootLayout() {
         <Stack.Screen name="add-class" options={{ headerShown: false }} />
         <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
         <Stack.Screen name="alerts/create-alert" options={{ headerShown: false }} />
+        <Stack.Screen name="users" options={{ headerShown: false }} />
       </Stack>
     </AuthContext.Provider>
   );
