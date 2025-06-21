@@ -192,7 +192,7 @@ const ClassDetails = () => {
     }
     
     if (isRegistered) {
-      Alert.alert("הודעה", "כבר נרשמת לחוג זה");
+      Alert.alert("הודעה", "כבר השארת פרטים לחוג זה");
       return;
     }
     
@@ -248,7 +248,7 @@ const ClassDetails = () => {
       Alert.alert("הצלחה", "הפרטים נשלחו בהצלחה");
     } catch (error) {
       console.error("Error registering for class:", error);
-      Alert.alert("שגיאה", "אירעה שגיאה בהרשמה לחוג");
+      Alert.alert("שגיאה", "אירעה שגיאה בהשארת פרטים לחוג");
     } finally {
       setRegistering(false);
     }
@@ -256,15 +256,15 @@ const ClassDetails = () => {
 
   const handleCancelRegistration = async () => {
     Alert.alert(
-      "ביטול הרשמה",
-      "האם אתה בטוח שברצונך לבטל את ההרשמה לחוג זה?",
+      "מחק הפרטים",
+      "האם אתה בטוח שברצונך למחק את הפרטים  לחוג זה?",
       [
         {
           text: "לא",
           style: "cancel"
         },
         {
-          text: "כן, בטל הרשמה",
+          text: "כן, מחק פרטים",
           style: "destructive",
           onPress: async () => {
             setCancelling(true);
@@ -290,10 +290,10 @@ const ClassDetails = () => {
               setUserRegistrationId(null);
               setRegistrationsCount(prev => Math.max(0, prev - 1));
               
-              Alert.alert("הצלחה", "ההרשמה בוטלה בהצלחה");
+              Alert.alert("הצלחה", "הפרטים נמחקו בהצלחה");
             } catch (error) {
               console.error("Error cancelling registration:", error);
-              Alert.alert("שגיאה", "אירעה שגיאה בביטול ההרשמה");
+              Alert.alert("שגיאה", "אירעה שגיאה במחיקת הפרטים");
             } finally {
               setCancelling(false);
             }
@@ -332,7 +332,7 @@ const ClassDetails = () => {
           style={styles.modalOverlay}
         >
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>טופס הרשמה לחוג</Text>
+            <Text style={styles.modalTitle}>טופס השארת פרטים לחוג</Text>
             
             <Text style={styles.inputLabel}>שם פרטי</Text>
             <TextInput
@@ -487,7 +487,7 @@ const ClassDetails = () => {
                 disabled={isRegistered || registering || registrationsCount >= (courseData?.maxCapacity || 0)}
               >
                 <Text style={styles.registerButtonText}>
-                  {isRegistered ? 'רשום כבר' : 
+                  {isRegistered ? 'השארת פרטים כבר' : 
                   registrationsCount >= (courseData?.maxCapacity || 0) ? 'החוג מלא' : 
                   registering ? 'שולח פרטים...' : 'השארת פרטי'}
                 </Text>
@@ -501,7 +501,7 @@ const ClassDetails = () => {
                   disabled={cancelling}
                 >
                   <Text style={styles.registerButtonText}>
-                    {cancelling ? 'מבטל הרשמה...' : 'בטל הרשמה'}
+                    {cancelling ? 'מבטל הרשמה...' : 'מחק הפרטים'}
                   </Text>
                 </TouchableOpacity>
               )}

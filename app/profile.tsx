@@ -85,6 +85,8 @@ const Profile = () => {
       setPasswordModalVisible(true)
     } else if (key === 'ניהול משתמשים') {
       router.push('/users')
+    } else if (key === 'רשימת נרשמים') {
+      router.push('/all-registrations')
     }
   }
 
@@ -107,6 +109,7 @@ const Profile = () => {
     // Show admin section only for admin users
     ...(isAdmin ? [[
       { label: 'ניהול משתמשים', icon: <MaterialIcons name="people" size={24}/> },
+      { label: 'רשימת נרשמים', icon: <MaterialIcons name="list" size={24}/> },
     ]] : []),
     [
       { label: 'צור קשר', icon: <MaterialIcons name="message" size={24}/> },
