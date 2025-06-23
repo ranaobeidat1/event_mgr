@@ -8,14 +8,15 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  FlatList
+  FlatList,
+  ScrollView,
+  TextInput
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, Stack } from 'expo-router';
 import { collection, getDocs } from 'firebase/firestore';
 import { db, auth } from '../FirebaseConfig';
 import { getUser, UserData } from './utils/firestoreUtils';
-import { Ionicons } from '@expo/vector-icons';
-
+ 
 interface RegistrationData {
   id: string;
   userId: string;
@@ -37,6 +38,8 @@ const AllRegistrationsList = () => {
   const [registrations, setRegistrations] = useState<RegistrationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredRegistrations, setFilteredRegistrations] = useState<RegistrationData[]>([]);
 
   const fetchRegistrations = useCallback(async () => {
     // Verify current user is admin
@@ -76,6 +79,7 @@ const AllRegistrationsList = () => {
       }
 
       setRegistrations(registrationsData);
+      setFilteredRegistrations(registrationsData); // Initialize filtered list
     } catch (error) {
       console.error('Error fetching registrations:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה בטעינת הנרשמים');
@@ -83,6 +87,21 @@ const AllRegistrationsList = () => {
       setLoading(false);
     }
   }, []);
+
+  // Filter registrations based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredRegistrations(registrations);
+    } else {
+      const lowercasedQuery = searchQuery.toLowerCase();
+      const filtered = registrations.filter(registration => {
+        const fullName = `${registration.firstName || ''} ${registration.lastName || ''}`.toLowerCase();
+        const email = (registration.email || '').toLowerCase();
+        return fullName.includes(lowercasedQuery) || email.includes(lowercasedQuery);
+      });
+      setFilteredRegistrations(filtered);
+    }
+  }, [searchQuery, registrations]);
 
   // useFocusEffect runs every time the screen comes into focus, ensuring data is fresh.
   useFocusEffect(
@@ -115,18 +134,57 @@ const AllRegistrationsList = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={28} style={{transform: [{rotate: '180deg'}]}} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>רשימת כל הנרשמים</Text>
-        <View style={{width: 28}} />
-      </View>
+    <>
+    <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
+      {/* Header */}
+      <View className="px-6 pt-5 pb-3">
+              <View className="flex-row justify-start mb-4">
+                <TouchableOpacity onPress={() => router.back()}>
+                  <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
+                </TouchableOpacity>
+              </View>
       
-      {registrations.length === 0 ? (
+            <View className="items-center">
+              <Text className="text-3xl font-bold text-primary">
+                רשימת כל הנרשמים
+              </Text>
+            </View>
+          </View>
+
+        {/* Search Bar */}
+      <View className="px-6 mb-4">
+        <TextInput
+          className="bg-gray-100 rounded-full px-5 py-3 text-lg text-right"
+          placeholder="חפש לפי שם או אימייל..."
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.trim() !== "" && (
+          <TouchableOpacity
+            className="absolute left-11 top-1/2 transform -translate-y-1/2"
+            onPress={() => setSearchQuery("")}
+          >
+            <Text className="text-gray-500 text-lg">×</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {/* Search Results Counter */}
+      {searchQuery.trim() !== "" && (
+        <View className="px-6 mb-2">
+          <Text className="text-sm text-gray-600 text-right">
+            נמצאו {filteredRegistrations.length} נרשמים
+          </Text>
+        </View>
+      )}
+      
+      {filteredRegistrations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>אין נרשמים במערכת</Text>
+          <Text style={styles.emptyText}>
+            {searchQuery.trim() !== "" ? "לא נמצאו תוצאות" : "אין נרשמים במערכת"}
+          </Text>
         </View>
       ) : (
         <View style={styles.listContainer}>
@@ -138,13 +196,14 @@ const AllRegistrationsList = () => {
           
           {/* Registrations rows using FlatList */}
           <FlatList
-            data={registrations}
+            data={filteredRegistrations}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
           />
         </View>
       )}
     </SafeAreaView>
+    </>
   );
 };
 
