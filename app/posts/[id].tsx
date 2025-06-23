@@ -152,38 +152,48 @@ export default function PostDetails() {
         </View>
       </Modal>
 
-      <SafeAreaView className="flex-1 bg-white px-5">
-        <ScrollView className="pb-10">
+      <SafeAreaView className="flex-1 bg-white px-6" style={{direction: 'rtl'}}>
+        {/* Header */}
+        <View className="pt-5 pb-3">
+          <View className="flex-row justify-start mb-4">
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Title */}
+        <Text className="text-3xl font-bold text-primary text-center mb-6">
+          {postData.title}
+        </Text>
+
+        {/* Content */}
+        <Text className="text-xl text-black mb-6 text-start">
+          {postData.content}
+        </Text>
+
+        <ScrollView className="pb-10 ">
           {/* Edit & Delete Buttons */}
           {isAdmin && (
-            <View className="flex-row justify-end space-x-2 mb-4">
+            <View className="flex-row justify-start space-x-2 mb-4 gap-2">
               <TouchableOpacity
                 onPress={() => router.push(`/posts/${id}/edit`)}
-                className="bg-blue-600 py-2 px-4 rounded-lg"
+                className="bg-green-600 py-5 px-4 rounded-lg"
               >
-                <Text className="text-white font-bold">ערוך</Text>
+                <Text className="text-white text-xl font-heebo-medium">ערוך</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={confirmDelete}
                 disabled={deleting}
-                className={`${deleting ? 'bg-red-300' : 'bg-red-600'} py-2 px-4 rounded-lg`}
+                className={`${deleting ? 'bg-red-300' : 'bg-red-600'} py-5 px-4 rounded-lg`}
               >
-                <Text className="text-white font-bold">
-                  {deleting ? 'מוחק…' : 'מחק'}
-                </Text>
+              <Text className="text-white text-xl font-heebo-medium">
+                {deleting ? 'מוחק…' : 'מחק'}
+              </Text>
               </TouchableOpacity>
             </View>
           )}
-
-          {/* Title */}
-          <Text className="text-3xl font-bold text-[#1A4782] text-center mb-6">
-            {postData.title}
-          </Text>
-
-          {/* Content */}
-          <Text className="text-base text-gray-800 mb-6">
-            {postData.content}
-          </Text>
+ 
 
           {/* Thumbnails */}
           {postData.images?.map((uri, idx) => (

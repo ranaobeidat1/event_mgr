@@ -603,7 +603,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backButtonText: {
-    fontSize: 18,
+    fontSize: 21,
     color: '#1A4782',
     fontFamily: 'Heebo-Medium',
   },

@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   backButtonText: { 
-    fontSize: 16, 
+    fontSize: 21, 
     color: '#1A4782', 
     fontFamily: 'Heebo-Medium' 
   },

@@ -14,7 +14,7 @@ import {
   Image,
   ActivityIndicator,
 } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams, Stack } from 'expo-router';
 import { auth, db, storage } from '../FirebaseConfig';
 import { doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
@@ -187,27 +187,28 @@ export default function EditClass() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <>
+    <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
         <ScrollView className="flex-1 px-6 pt-6">
-          <TouchableOpacity 
-            className="mb-6" 
-            onPress={() => router.back()}
-          >
-            <Text className="text-primary text-lg">חזרה</Text>
+          <View className="flex-row justify-start mb-4">
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
           </TouchableOpacity>
+        </View>
 
           <Text className="text-3xl font-heebo-bold text-center mb-8 text-primary">
             עריכת חוג
           </Text>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">שם החוג</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">שם החוג</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={name}
               onChangeText={setName}
               placeholder="הזן את שם החוג"
@@ -215,9 +216,9 @@ export default function EditClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">תיאור</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">תיאור</Text>
             <TextInput
-              className="bg-gray-100 rounded-lg px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={description}
               onChangeText={setDescription}
               placeholder="הזן תיאור קצר של החוג"
@@ -228,9 +229,9 @@ export default function EditClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">מיקום</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">מיקום</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={location}
               onChangeText={setLocation}
               placeholder="הזן את מיקום החוג"
@@ -238,9 +239,9 @@ export default function EditClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">לוח זמנים</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">לוח זמנים</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={schedule}
               onChangeText={setSchedule}
               placeholder="לדוגמה: יום ראשון 16:00-17:30"
@@ -248,9 +249,9 @@ export default function EditClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">תשלום</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">תשלום</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={payment}
               onChangeText={setPayment}
               placeholder="לדוגמה: 150 ש״ח לחודש"
@@ -258,9 +259,9 @@ export default function EditClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">מספר משתתפים מקסימלי</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">מספר משתתפים מקסימלי</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={maxCapacity}
               onChangeText={setMaxCapacity}
               placeholder="הזן מספר"
@@ -271,7 +272,7 @@ export default function EditClass() {
           {/* Existing images */}
           {existingImages.length > 0 && (
             <View className="mb-6">
-              <Text className="text-lg font-heebo-medium mb-2 text-right">תמונות קיימות:</Text>
+              <Text className="text-xl font-heebo-medium mb-2 px-4">תמונות קיימות:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {existingImages.map((uri, index) => (
                   <View key={`existing-${index}`} className="mr-2">
@@ -294,10 +295,10 @@ export default function EditClass() {
 
           {/* Image picker button */}
           <TouchableOpacity
-            className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
+            className="bg-primary rounded-full py-4 mb-4 items-center"
             onPress={pickImages}
           >
-            <Text className="text-white text-lg font-heebo-bold">
+            <Text className="text-white text-xl font-heebo-bold">
               הוסף תמונות חדשות
             </Text>
           </TouchableOpacity>
@@ -348,5 +349,6 @@ export default function EditClass() {
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  </>
   );
 }

@@ -152,7 +152,7 @@ export default function AddClass() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -162,7 +162,7 @@ export default function AddClass() {
             className="mb-6" 
             onPress={() => router.back()}
           >
-            <Text className="text-primary text-lg">חזרה</Text>
+            <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
           </TouchableOpacity>
 
           <Text className="text-3xl font-heebo-bold text-center mb-8 text-primary">
@@ -170,9 +170,9 @@ export default function AddClass() {
           </Text>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">שם החוג</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">שם החוג</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={name}
               onChangeText={setName}
               placeholder="הזן את שם החוג"
@@ -180,9 +180,9 @@ export default function AddClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">תיאור</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">תיאור</Text>
             <TextInput
-              className="bg-gray-100 rounded-lg px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={description}
               onChangeText={setDescription}
               placeholder="הזן תיאור קצר של החוג"
@@ -193,9 +193,9 @@ export default function AddClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">מיקום</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">מיקום</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={location}
               onChangeText={setLocation}
               placeholder="הזן את מיקום החוג"
@@ -203,9 +203,9 @@ export default function AddClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">לוח זמנים</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">לוח זמנים</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={schedule}
               onChangeText={setSchedule}
               placeholder="לדוגמה: יום ראשון 16:00-17:30"
@@ -213,9 +213,9 @@ export default function AddClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">תשלום</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">תשלום</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={payment}
               onChangeText={setPayment}
               placeholder="לדוגמה: 150 ש״ח לחודש"
@@ -223,9 +223,9 @@ export default function AddClass() {
           </View>
 
           <View className="mb-6">
-            <Text className="text-lg font-heebo-medium mb-2 text-right">מספר משתתפים מקסימלי</Text>
+            <Text className="text-xl font-heebo-medium mb-2 px-4">מספר משתתפים מקסימלי</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-lg font-heebo-regular text-right"
+              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
               value={maxCapacity}
               onChangeText={setMaxCapacity}
               placeholder="הזן מספר"
@@ -235,10 +235,10 @@ export default function AddClass() {
 
           {/* Image picker button */}
           <TouchableOpacity
-            className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
+            className="bg-primary rounded-full py-4 mb-4 items-center"
             onPress={pickImages}
           >
-            <Text className="text-white text-lg font-heebo-bold">
+            <Text className="text-white text-xl font-heebo-bold">
               הוסף תמונות
             </Text>
           </TouchableOpacity>
@@ -246,7 +246,7 @@ export default function AddClass() {
           {/* Image preview */}
           {localImageUris.length > 0 && (
             <View className="mb-6">
-              <Text className="text-lg font-heebo-medium mb-2 text-right">תמונות שנבחרו:</Text>
+              <Text className="text-xl font-heebo-medium mb-2 px-4">תמונות שנבחרו:</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                 {localImageUris.map((uri, index) => (
                   <View key={index} className="mr-2">

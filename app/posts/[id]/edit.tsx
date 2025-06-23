@@ -104,29 +104,45 @@ export default function EditPost() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white px-5">
-      <ScrollView className="pb-10">
-        <Text className="text-2xl font-bold text-[#1A4782] mb-4">עריכת פוסט</Text>
+    <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
+          {/* Header */}
+          <View className="px-6 pt-5 pb-3">
+            <View className="flex-row justify-start mb-4">
+              <TouchableOpacity onPress={() => router.back()}>
+                <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
+              </TouchableOpacity>
+            </View>
+    
+          <View className="items-center">
+            <Text className="text-3xl font-bold text-primary">
+              עריכת פוסט
+            </Text>
+          </View>
+        </View>
 
-        <Text className="mb-1">כותרת:</Text>
+        <ScrollView className="flex-1 px-6">
+
+        <Text className="mb-1 text-start text-xl">כותרת:</Text>
         <TextInput
           value={post.title}
           onChangeText={t => setPost(p => ({ ...p, title: t }))}
           placeholder="כותרת"
-          className="border border-gray-300 rounded-lg p-2 mb-4"
+          className="border border-gray-300 rounded-lg p-2 mb-4 text-lg"
+          textAlign="right"
         />
 
-        <Text className="mb-1">תוכן:</Text>
+        <Text className="mb-1 text-start text-xl">תוכן:</Text>
         <TextInput
           value={post.content}
           onChangeText={t => setPost(p => ({ ...p, content: t }))}
           placeholder="תוכן"
           multiline
           numberOfLines={4}
-          className="border border-gray-300 rounded-lg p-2 mb-4 h-32 text-top"
+          className="border border-gray-300 rounded-lg p-2 mb-4 h-32 text-top text-lg"
+          textAlign="right"
         />
 
-        <Text className="mb-2">תמונות:</Text>
+        <Text className="mb-2 text-start text-xl">תמונות:</Text>
         {post.images?.length ? (
           <ScrollView horizontal className="mb-4 space-x-2">
             {post.images.map((uri, idx) => (
@@ -152,7 +168,7 @@ export default function EditPost() {
           disabled={saving}
           className="bg-green-600 py-3 rounded-full items-center mb-6"
         >
-          <Text className="text-white text-lg">
+          <Text className="text-black text-xl font-heebo-bold">
             {saving ? 'טוען…' : 'הוסף תמונות'}
           </Text>
         </TouchableOpacity>
@@ -165,9 +181,9 @@ export default function EditPost() {
             
           }}
           disabled={saving}
-          className="bg-blue-600 py-3 rounded-full items-center"
+          className="bg-yellow-400 py-3 rounded-full items-center"
         >
-          <Text className="text-white text-lg">
+          <Text className="text-black text-xl font-heebo-bold">
             {saving ? 'שומר…' : 'שמור שינויים'}
           </Text>
         </TouchableOpacity>
