@@ -19,6 +19,12 @@ export interface DashboardStats {
   alertsSentThisMonth: number;
   courseAnalytics: CourseAnalytics[];
   monthlyGrowth: MonthlyGrowth;
+  weeklyData: WeeklyData[];
+}
+
+export interface WeeklyData {
+  day: string;
+  registrations: number;
 }
 
 export interface CourseAnalytics {
@@ -101,6 +107,9 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       endOfLastMonth
     );
 
+    // Weekly Data
+    const weeklyData = calculateWeeklyData(registrationsSnapshot);
+
     return {
       totalUsers,
       totalCourses,
@@ -110,7 +119,8 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       activeUsers,
       alertsSentThisMonth,
       courseAnalytics,
-      monthlyGrowth
+      monthlyGrowth,
+      weeklyData
     };
   } catch (error) {
     console.error('Error fetching dashboard stats:', error);
@@ -245,4 +255,39 @@ export const getAverageFillRate = async (): Promise<number> => {
     console.error('Error calculating average fill rate:', error);
     return 0;
   }
+};
+
+// Calculate weekly registration data for the last 7 days
+const calculateWeeklyData = (registrationsSnapshot: any): WeeklyData[] => {
+  const weeklyData: WeeklyData[] = [];
+  const daysOfWeek = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+  const today = new Date();
+  
+  // Initialize data for last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date(today);
+    date.setDate(today.getDate() - i);
+    const dayIndex = date.getDay();
+    
+    weeklyData.push({
+      day: daysOfWeek[dayIndex],
+      registrations: 0
+    });
+  }
+  
+  // Count registrations per day
+  registrationsSnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
+    const registrationDate = doc.data().registrationDate?.toDate();
+    if (registrationDate) {
+      const daysDiff = Math.floor((today.getTime() - registrationDate.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysDiff >= 0 && daysDiff < 7) {
+        const index = 6 - daysDiff;
+        if (weeklyData[index]) {
+          weeklyData[index].registrations++;
+        }
+      }
+    }
+  });
+  
+  return weeklyData;
 };

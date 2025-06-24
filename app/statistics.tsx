@@ -14,6 +14,13 @@ import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../FirebaseConfig';
 import { getUser } from './utils/firestoreUtils';
 import { getDashboardStats, DashboardStats, CourseAnalytics } from './utils/statisticsUtils';
+import {
+  MonthlyGrowthChart,
+  CourseDistributionChart,
+  FillRateChart,
+  ActivityBarChart,
+  WeeklyTrendChart
+} from './components/StatisticsCharts';
 
 export default function Statistics() {
   const router = useRouter();
@@ -207,22 +214,17 @@ export default function Statistics() {
           />
         </View>
 
-        {/* Activity Metrics */}
+        {/* Activity Metrics Chart */}
         <Text className="text-lg font-heebo-bold text-gray-900 mb-3 mt-6">מדדי פעילות</Text>
-        <View className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 mb-4">
-          <View className="mb-3">
-            <Text className="text-gray-600 text-sm font-heebo-regular">רישומים לקורסים ב-30 הימים האחרונים</Text>
-            <Text className="text-xl font-heebo-bold text-gray-900">{stats.newRegistrationsLast30Days}</Text>
-          </View>
-          <View className="mb-3">
-            <Text className="text-gray-600 text-sm font-heebo-regular">משתמשים פעילים (נרשמו לאחרונה)</Text>
-            <Text className="text-xl font-heebo-bold text-gray-900">{stats.activeUsers}</Text>
-          </View>
-          <View>
-            <Text className="text-gray-600 text-sm font-heebo-regular">התראות שנשלחו החודש</Text>
-            <Text className="text-xl font-heebo-bold text-gray-900">{stats.alertsSentThisMonth}</Text>
-          </View>
-        </View>
+        <ActivityBarChart
+          newRegistrations={stats.newRegistrationsLast30Days}
+          activeUsers={stats.activeUsers}
+          alertsSent={stats.alertsSentThisMonth}
+          totalPosts={stats.totalPosts}
+        />
+
+        {/* Monthly Growth Chart */}
+        <MonthlyGrowthChart monthlyData={stats.monthlyGrowth} />
 
         {/* Course Analytics */}
         <View className="flex-row justify-between items-center mb-3">
@@ -239,6 +241,15 @@ export default function Statistics() {
         {(showAllCourses ? stats.courseAnalytics : stats.courseAnalytics.slice(0, 5)).map((course) => (
           <CourseCard key={course.courseId} course={course} />
         ))}
+
+        {/* Course Distribution Chart */}
+        <CourseDistributionChart courses={stats.courseAnalytics} />
+
+        {/* Fill Rate Chart */}
+        <FillRateChart courses={stats.courseAnalytics} />
+
+        {/* Weekly Trend Chart */}
+        <WeeklyTrendChart weeklyData={stats.weeklyData} />
 
         {/* Quick Insights */}
         <Text className="text-lg font-heebo-bold text-gray-900 mb-3 mt-6">תובנות מהירות</Text>
