@@ -125,6 +125,8 @@ export default function RootLayout() {
         <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
         <Stack.Screen name="alerts/create-alert" options={{ headerShown: false }} />
         <Stack.Screen name="users" options={{ headerShown: false }} />
+        <Stack.Screen name="all-registrations" options={{ headerShown: false }} />
+        <Stack.Screen name="statistics" options={{ headerShown: false }} />
       </Stack>
     </AuthContext.Provider>
   );

@@ -87,6 +87,8 @@ const Profile = () => {
       router.push('/users')
     } else if (key === 'רשימת נרשמים') {
       router.push('/all-registrations')
+    } else if (key === 'נתונים סטטיסטיים') {
+      router.push('/statistics')
     }
   }
 
@@ -110,6 +112,7 @@ const Profile = () => {
     ...(isAdmin ? [[
       { label: 'ניהול משתמשים', icon: <MaterialIcons name="people" size={24}/> },
       { label: 'רשימת נרשמים', icon: <MaterialIcons name="list" size={24}/> },
+      { label: 'נתונים סטטיסטיים', icon: <MaterialIcons name="analytics" size={24}/> },
     ]] : []),
     [
       { label: 'צור קשר', icon: <MaterialIcons name="message" size={24}/> },
@@ -119,12 +122,11 @@ const Profile = () => {
   return (
     <SafeAreaView className="flex-1 bg-[#F5F6FA]" style={{direction: 'rtl'}}>
       {/* Header */}
-      <View className="px-6 pt-5 pb-3">
-        <View className="flex-row justify-start mb-4">
-                  <TouchableOpacity onPress={() => router.back()}>
-                    <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
-                  </TouchableOpacity>
-                </View>
+      <View className="flex-row-reverse items-center justify-between bg-white h-14 px-5">
+        <TouchableOpacity onPress={() => router.back()}>
+          <Ionicons name="chevron-back" size={28} style={{transform: [{rotate: '180deg'}]}} />
+        </TouchableOpacity>
+        <Text className="text-lg font-semibold">הפרופיל</Text>
       </View>
 
       {/* Avatar + Name */}
@@ -135,7 +137,7 @@ const Profile = () => {
             <Ionicons name="person" size={40} color="#bbb" />
           </View>
         </View>
-        <Text className="mt-12 text-2xl font-semibold text-gray-800" style={{textAlign: 'right'}}>
+        <Text className="mt-12 text-xl font-semibold text-gray-800" style={{textAlign: 'right'}}>
           {userData.firstName} {userData.lastName}
         </Text>
       </View>
@@ -147,18 +149,16 @@ const Profile = () => {
             {group.map((item, i) => (
               <TouchableOpacity
                 key={i}
-                className="flex-row items-center py-4 px-4 border-b border-gray-200 last:border-b-0"
+                className="flex-row items-center justify-end py-4 px-4 border-b border-gray-200 last:border-b-0"
                 onPress={() => handleMenuPress(item.label)}
               >
-              <View className="w-7 items-center ml-4">
-                {item.icon}
-              </View>
-
-              <Text className="text-lg text-gray-800 text-right">
-                {item.label}
-              </Text>
-                
-            </TouchableOpacity>
+                <Text className="text-base text-gray-800 text-right">
+                  {item.label}
+                </Text>
+                <View className="w-7 items-center ml-4">
+                  {item.icon}
+                </View>
+              </TouchableOpacity>
             ))}
           </View>
         ))}
@@ -166,15 +166,13 @@ const Profile = () => {
         {/* Sign out */}
         <View className="bg-white rounded-xl mb-8 overflow-hidden">
           <TouchableOpacity
-            className="flex-row items-center py-4 px-4"
+            className="flex-row items-center justify-end py-4 px-4"
             onPress={handleSignOut}
           >
-            <Ionicons name="log-out-outline" size={24} style={{marginLeft: 16}} />
-
-            <Text className="text-lg text-[#1A4782] font-medium text-right">
+            <Text className="text-base text-[#1A4782] font-medium text-right">
               התנתקות
             </Text>
-            
+            <Ionicons name="log-out-outline" size={24} style={{marginLeft: 16}} />
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -186,30 +184,30 @@ const Profile = () => {
         animationType="fade"
         onRequestClose={() => setEditModalVisible(false)}
       >
-        <View className="flex-1 bg-[#F5F6FA] bg-opacity-50 justify-center items-center px-4">
-          <View className="bg-white w-full max-w-md p-8 rounded-xl shadow-lg" style={{direction: 'rtl', minHeight: 300}}>
-            <Text className="text-2xl font-semibold mb-8 text-start">ערוך שם</Text>
+        <View className="flex-1 bg-black bg-opacity-50 justify-center items-center">
+          <View className="bg-white mx-6 p-6 rounded-xl shadow-lg" style={{direction: 'rtl'}}>
+            <Text className="text-lg font-semibold mb-4 text-right">ערוך שם</Text>
             <TextInput
-              className="border border-gray-300 rounded px-5 py-3 mb-6 text-start text-xl"
+              className="border border-gray-300 rounded px-3 py-2 mb-4 text-right"
               placeholder="שם פרטי"
               value={newFirstName}
               onChangeText={setNewFirstName}
             />
             <TextInput
-              className="border border-gray-300 rounded px-5 py-3 mb-6 text-start text-xl"
+              className="border border-gray-300 rounded px-3 py-2 mb-4 text-right"
               placeholder="שם משפחה"
               value={newLastName}
               onChangeText={setNewLastName}
             />
             <View className="flex-row-reverse justify-end">
               <TouchableOpacity
-                className="px-6 py-4 ml-4 rounded"
+                className="px-4 py-2 ml-2"
                 onPress={() => setEditModalVisible(false)}
               >
-                <Text className="text-gray-600 text-right text-lg">ביטול</Text>
+                <Text className="text-gray-600 text-right">ביטול</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="bg-[#1A4782] px-6 py-4 rounded"
+                className="bg-[#1A4782] px-4 py-2 rounded"
                 onPress={async () => {
                   try {
                     const uid = auth.currentUser!.uid
@@ -230,7 +228,7 @@ const Profile = () => {
                   }
                 }}
               >
-                <Text className="text-white font-medium text-right text-lg">שמור</Text>
+                <Text className="text-white font-medium text-right">שמור</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -244,42 +242,39 @@ const Profile = () => {
         animationType="fade"
         onRequestClose={() => setPasswordModalVisible(false)}
       >
-        <View className="flex-1 bg-[#F5F6FA] bg-opacity-50 justify-center items-center px-4">
-          <View className="bg-white w-full max-w-md p-8 rounded-xl shadow-lg" style={{direction: 'rtl', minHeight: 300}}>
-            <Text className="text-2xl font-semibold mb-8 text-start">שנה סיסמה</Text>
+        <View className="flex-1 bg-black bg-opacity-50 justify-center items-center">
+          <View className="bg-white mx-6 p-6 rounded-xl shadow-lg" style={{direction: 'rtl'}}>
+            <Text className="text-lg font-semibold mb-4 text-right">שנה סיסמה</Text>
             <TextInput
-              className="border border-gray-300 rounded px-5 py-3 mb-6 text-right text-xl"
+              className="border border-gray-300 rounded px-3 py-2 mb-4 text-right"
               placeholder="סיסמה נוכחית"
               secureTextEntry
               value={oldPassword}
               onChangeText={setOldPassword}
-              placeholderTextColor="#9CA3AF"
             />
             <TextInput
-              className="border border-gray-300 rounded px-5 py-3 mb-6 text-right text-xl"
+              className="border border-gray-300 rounded px-3 py-2 mb-4 text-right"
               placeholder="סיסמה חדשה"
               secureTextEntry
               value={newPassword}
               onChangeText={setNewPassword}
-              placeholderTextColor="#9CA3AF"
             />
             <TextInput
-              className="border border-gray-300 rounded px-5 py-3 mb-6 text-right text-xl"
+              className="border border-gray-300 rounded px-3 py-2 mb-4 text-right"
               placeholder="אישור סיסמה"
               secureTextEntry
               value={confirmPassword}
               onChangeText={setConfirmPassword}
-              placeholderTextColor="#9CA3AF"
             />
             <View className="flex-row-reverse justify-end">
               <TouchableOpacity
-                className="px-6 py-4 ml-4 rounded"
+                className="px-4 py-2 ml-2"
                 onPress={() => setPasswordModalVisible(false)}
               >
-                <Text className="text-gray-600 text-right text-lg">ביטול</Text>
+                <Text className="text-gray-600 text-right">ביטול</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                className="bg-[#1A4782] px-6 py-4 rounded"
+                className="bg-[#1A4782] px-4 py-2 rounded"
                 onPress={async () => {
                   if (newPassword !== confirmPassword) {
                     Alert.alert('שגיאה', 'הסיסמאות אינן תואמות.')
@@ -305,7 +300,7 @@ const Profile = () => {
                   }
                 }}
               >
-                <Text className="text-white font-medium text-right text-lg">שמור</Text>
+                <Text className="text-white font-medium text-right">שמור</Text>
               </TouchableOpacity>
             </View>
           </View>
