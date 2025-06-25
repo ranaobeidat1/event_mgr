@@ -24,6 +24,12 @@ module.exports = {
         tahoma: ["Tahoma"],
         "tahoma-bold": ["Tahoma-Bold"],
       },
+      spacing: {
+        'rtl-2': '0.5rem',
+        'rtl-4': '1rem',
+        'rtl-6': '1.5rem',
+        'rtl-8': '2rem',
+      },
     },
   },
   plugins: [],

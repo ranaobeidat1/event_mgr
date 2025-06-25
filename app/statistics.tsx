@@ -21,6 +21,7 @@ import {
   ActivityBarChart,
   WeeklyTrendChart
 } from './components/StatisticsCharts';
+import { StatsSkeleton } from './components/SkeletonLoader';
 
 export default function Statistics() {
   const router = useRouter();
@@ -139,10 +140,19 @@ export default function Statistics() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-gray-50 justify-center items-center">
-        <ActivityIndicator size="large" color="#1A4782" />
-        <Text className="mt-2 text-gray-600 font-heebo-regular">טוען נתונים...</Text>
-      </View>
+      <ScrollView className="flex-1 bg-gray-50" showsVerticalScrollIndicator={false}>
+        <View className="bg-[#1A4782] px-4 pt-12 pb-6">
+          <Text className="text-white text-2xl font-heebo-bold text-center">
+            לוח בקרה סטטיסטי
+          </Text>
+          <Text className="text-white/80 text-sm font-heebo-regular text-center mt-1">
+            סקירה כללית של הנתונים
+          </Text>
+        </View>
+        <View className="-mt-0.5">
+          <StatsSkeleton />
+        </View>
+      </ScrollView>
     );
   }
 

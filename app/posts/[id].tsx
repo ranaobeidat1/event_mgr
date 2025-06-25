@@ -20,6 +20,7 @@ import { doc, getDoc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../../FirebaseConfig';
 import { getUser } from '../utils/firestoreUtils';
 import { useAuth } from '../_layout';
+import { ModernActionButtons } from '../components/ModernActionButtons';
 
 interface UserData { id: string; role?: string; }
 interface PostData { title: string; content: string; images?: string[]; authorId: string; createdAt?: any; }
@@ -175,22 +176,15 @@ export default function PostDetails() {
         <ScrollView className="pb-10 ">
           {/* Edit & Delete Buttons */}
           {isAdmin && (
-            <View className="flex-row justify-start space-x-2 mb-4 gap-2">
-              <TouchableOpacity
-                onPress={() => router.push(`/posts/${id}/edit`)}
-                className="bg-green-600 py-5 px-4 rounded-lg"
-              >
-                <Text className="text-white text-xl font-heebo-medium">ערוך</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={confirmDelete}
+            <View className="mb-4 items-center">
+              <ModernActionButtons
+                showEdit={true}
+                showDelete={true}
+                onEdit={() => router.push(`/posts/${id}/edit`)}
+                onDelete={confirmDelete}
                 disabled={deleting}
-                className={`${deleting ? 'bg-red-300' : 'bg-red-600'} py-5 px-4 rounded-lg`}
-              >
-              <Text className="text-white text-xl font-heebo-medium">
-                {deleting ? 'מוחק…' : 'מחק'}
-              </Text>
-              </TouchableOpacity>
+                size="large"
+              />
             </View>
           )}
  

@@ -17,8 +17,8 @@ import {
 } from "./utils/notificationService";
 
 
-I18nManager.allowRTL(false);
-I18nManager.forceRTL(false);
+I18nManager.allowRTL(true);
+I18nManager.forceRTL(true);
 // Auth context to share user state
 type AuthContextType = { 
   user: User | null;

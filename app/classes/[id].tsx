@@ -20,6 +20,7 @@ import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp
 import { db, auth } from '../../FirebaseConfig';
 import { getUser, UserData } from '../utils/firestoreUtils';
 import { useAuth } from '../_layout';
+import { ModernActionButtons } from '../components/ModernActionButtons';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -331,7 +332,7 @@ const ClassDetails = () => {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}
         >
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, { direction: 'rtl' }]}>
             <Text style={styles.modalTitle}>טופס השארת פרטים לחוג</Text>
             
             <Text style={styles.inputLabel}>שם פרטי</Text>
@@ -362,19 +363,19 @@ const ClassDetails = () => {
               textAlign="right"
             />
             
-            <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.submitButton]}
-                onPress={handleRegistrationSubmit}
-              >
-                <Text style={styles.modalButtonText}>שלח פרטים</Text>
-              </TouchableOpacity>
-              
+            <View style={[styles.modalButtonsContainer, { direction: 'rtl' }]}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelModalButton]}
                 onPress={() => setShowRegistrationModal(false)}
               >
                 <Text style={styles.modalButtonText}>ביטול</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleRegistrationSubmit}
+              >
+                <Text style={styles.modalButtonText}>שלח פרטים</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -523,53 +524,44 @@ const ClassDetails = () => {
                 </Text>
               </TouchableOpacity>
               
-              {/* Edit class button */}
-              <TouchableOpacity 
-                style={styles.editButton} 
-                onPress={() => router.push({
-                  pathname: '../edit-class',
-                  params: { 
-                    id: id,
-                    name: courseData?.name,
-                    description: courseData?.description,
-                    location: courseData?.location,
-                    schedule: courseData?.schedule,
-                    maxCapacity: courseData?.maxCapacity,
-                    payment: courseData?.payment || '',
-                    existingImages: JSON.stringify(courseData?.imageUrl || [])
-                  }
-                })}
-              >
-                <Text style={styles.registerButtonText}>
-                  ערוך חוג
-                </Text>
-              </TouchableOpacity>
-              
-              {/* Delete class button */}
-              <TouchableOpacity 
-                style={styles.deleteButton} 
-                onPress={() => {
-                  Alert.alert(
-                    "מחיקת חוג",
-                    "האם אתה בטוח שברצונך למחוק חוג זה? פעולה זו אינה ניתנת לביטול ותמחק את כל ההרשמות הקשורות.",
-                    [
-                      {
-                        text: "ביטול",
-                        style: "cancel"
-                      },
-                      { 
-                        text: "מחק", 
-                        style: "destructive",
-                        onPress: handleDeleteClass
-                      }
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.registerButtonText}>
-                  מחק חוג
-                </Text>
-              </TouchableOpacity>
+              {/* Modern Edit and Delete buttons */}
+              <View style={{ marginTop: 16, alignItems: 'center' }}>
+                <ModernActionButtons
+                  showEdit={true}
+                  showDelete={true}
+                  onEdit={() => router.push({
+                    pathname: '../edit-class',
+                    params: { 
+                      id: id,
+                      name: courseData?.name,
+                      description: courseData?.description,
+                      location: courseData?.location,
+                      schedule: courseData?.schedule,
+                      maxCapacity: courseData?.maxCapacity,
+                      payment: courseData?.payment || '',
+                      existingImages: JSON.stringify(courseData?.imageUrl || [])
+                    }
+                  })}
+                  onDelete={() => {
+                    Alert.alert(
+                      "מחיקת חוג",
+                      "האם אתה בטוח שברצונך למחוק חוג זה? פעולה זו אינה ניתנת לביטול ותמחק את כל ההרשמות הקשורות.",
+                      [
+                        {
+                          text: "ביטול",
+                          style: "cancel"
+                        },
+                        { 
+                          text: "מחק", 
+                          style: "destructive",
+                          onPress: handleDeleteClass
+                        }
+                      ]
+                    );
+                  }}
+                  size="large"
+                />
+              </View>
             </>
           )}
         </ScrollView>

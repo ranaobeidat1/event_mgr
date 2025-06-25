@@ -15,6 +15,7 @@ import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
 import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { db, auth } from '../FirebaseConfig';
 import { getUser, UserData } from './utils/firestoreUtils';
+import { ModernDeleteButton } from './components/ModernActionButtons';
 
 interface RegistrationData {
   id: string;
@@ -147,12 +148,10 @@ const RegistrationsList = () => {
         <Text style={[styles.cell, styles.phoneCell]}>{item.phoneNumber || 'לא צוין'}</Text>
         <Text style={[styles.cell, styles.emailCell]}>{item.email || 'לא צוין'}</Text>
         <View style={styles.actionCell}>
-          <TouchableOpacity 
-            style={styles.deleteButton}
+          <ModernDeleteButton
             onPress={() => handleDeleteRegistration(item.id, fullName)}
-          >
-            <Text style={styles.deleteButtonText}>מחק</Text>
-          </TouchableOpacity>
+            size="small"
+          />
         </View>
       </View>
     );

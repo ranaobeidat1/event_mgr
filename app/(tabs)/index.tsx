@@ -3,7 +3,6 @@ import {
   SafeAreaView,
   View,
   Text,
-  ActivityIndicator,
   ScrollView,
   TouchableOpacity,
   Modal,
@@ -28,6 +27,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Picker } from '@react-native-picker/picker';
 import type { Timestamp } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
+import { AlertSkeleton, CourseCircleSkeleton } from '../components/SkeletonLoader';
 
 interface AlertData {
   id: string;
@@ -173,16 +173,25 @@ export default function PostsScreen() {
 
   if (loadingAlerts || loadingCourses || loadingCircles) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-white">
-        <ActivityIndicator size="large" color="#1A4782" />
+      <SafeAreaView className="flex-1 bg-white pt-4">
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={{ paddingBottom: 60 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text className="text-[#1A4782] text-center text-2xl font-heebo-bold mb-3">
+            ברוכים הבאים לאפליקציה שלנו!
+          </Text>
+          <AlertSkeleton />
+          <Text className="text-[#1A4782] text-xl font-heebo-bold text-center mb-2 mt-4">
+            הקורסים שלנו
+          </Text>
+          <CourseCircleSkeleton />
+        </ScrollView>
       </SafeAreaView>
     );
   }
 
-  const rows: CircleData[][] = [];
-  for (let i = 0; i < circles.length; i += 3) {
-    rows.push(circles.slice(i, i + 3));
-  }
 
   return (
     <SafeAreaView className="flex-1 bg-white pt-4">
@@ -212,59 +221,57 @@ export default function PostsScreen() {
           הקורסים שלנו
         </Text>
 
-        <View className="mx-4 mb-6 mt-2">
-          {rows.map((row, idx) => (
-            <View key={idx} className="flex-row justify-center mb-4">
-              {row.map((c) => (
-                <View key={c.id} className="items-center relative mx-3">
-                  <TouchableOpacity
-                    onPress={() => router.push(`/classes/${c.courseId}`)}
-                    className="w-28 h-28 rounded-full bg-[#1A4782] justify-center items-center shadow-lg relative"
-                    activeOpacity={0.85}
-                  >
-                    {c.logoUri ? (
-                      <>
-                        <Image source={{ uri: c.logoUri }} className="w-20 h-20 rounded-full mb-1" />
-                        <View className="absolute bottom-1 px-1">
-                          <Text
-                            className="text-white text-m font-Heebo-Bold text-center"
-                            numberOfLines={2}
-                            adjustsFontSizeToFit
-                            style={{
-                              textShadowColor: 'black',
-                              textShadowOffset: { width: 1, height: 1 },
-                              textShadowRadius: 2,
-                              maxWidth: 80,
-                            }}
-                          >
-                            {c.courseName}
-                          </Text>
-                        </View>
-                      </>
-                    ) : (
-                      <Text className="text-white text-base text-center px-2">{c.courseName}</Text>
-                    )}
-                  </TouchableOpacity>
+        <View className="mx-4 mb-6 mt-2 flex-row flex-wrap justify-center" style={{ direction: 'rtl' }}>
+          {circles.map((c) => (
+            <View key={c.id} className="relative m-2">
+              <TouchableOpacity
+                onPress={() => router.push(`/classes/${c.courseId}`)}
+                className="w-28 h-28 bg-white rounded-full shadow-lg border-2 border-[#1A4782] justify-center items-center"
+                style={{
+                  shadowColor: '#3B82F6',
+                  shadowOffset: { width: 0, height: 0 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 8,
+                }}
+                activeOpacity={0.85}
+              >
+                {c.logoUri ? (
+                  <Image source={{ uri: c.logoUri }} className="w-20 h-20 rounded-full" />
+                ) : (
+                  <View className="w-20 h-20 rounded-full bg-[#1A4782] justify-center items-center">
+                    <Text className="text-white text-xs font-heebo-bold text-center px-1" numberOfLines={2}>
+                      {c.courseName}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <Text className="text-[#1A4782] font-heebo-bold text-sm text-center mt-2" numberOfLines={2}>
+                {c.courseName}
+              </Text>
 
-                  {isAdmin && (
-                    <TouchableOpacity
-                      onPress={() => removeCircle(c.id)}
-                      className="absolute -top-2 -right-2 bg-red-500 rounded-full w-7 h-7 justify-center items-center shadow"
-                    >
-                      <Text className="text-white text-xs">×</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
+              {isAdmin && (
+                <TouchableOpacity
+                  onPress={() => removeCircle(c.id)}
+                  className="absolute -top-1 -left-1 bg-red-500 rounded-full w-6 h-6 justify-center items-center shadow-lg"
+                >
+                  <Text className="text-white text-xs font-bold">×</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ))}
           {isAdmin && circles.length < 6 && (
-            <TouchableOpacity
-              onPress={() => setModalVisible(true)}
-              className="px-4 py-3 bg-[#1A4782] rounded-md items-center"
-            >
-              <Text className="text-white font-bold">+ הוספת כיתה</Text>
-            </TouchableOpacity>
+            <View className="relative m-2">
+              <TouchableOpacity
+                onPress={() => setModalVisible(true)}
+                className="w-28 h-28 bg-white rounded-full shadow-lg border-dashed border-2 border-gray-300 justify-center items-center"
+              >
+                <View className="w-12 h-12 bg-[#1A4782] rounded-full items-center justify-center">
+                  <Text className="text-white text-2xl">+</Text>
+                </View>
+              </TouchableOpacity>
+              <Text className="text-[#1A4782] font-heebo-bold text-sm text-center mt-2">הוספת כיתה</Text>
+            </View>
           )}
         </View>
 
