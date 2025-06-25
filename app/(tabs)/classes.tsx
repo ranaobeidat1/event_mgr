@@ -32,6 +32,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { ModernEditButton, ModernDeleteButton } from '../components/ModernActionButtons';
 
 // Force RTL layout
 I18nManager.allowRTL(true);
@@ -66,7 +67,14 @@ const GRADIENT_COLORS = [
 ] as const;
 
 // Modern card component with glassmorphism
-const ModernClassCard = ({ cls, index, onPress }: { cls: ClassData; index: number; onPress: () => void }) => {
+const ModernClassCard = ({ cls, index, onPress, isAdmin, onEdit, onDelete }: { 
+  cls: ClassData; 
+  index: number; 
+  onPress: () => void;
+  isAdmin: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) => {
   const scale = useSharedValue(1);
   const rotate = useSharedValue(0);
   const translateY = useSharedValue(0);
@@ -151,8 +159,29 @@ const ModernClassCard = ({ cls, index, onPress }: { cls: ClassData; index: numbe
         
         <View style={{ 
           padding: 24,
-          backgroundColor: Platform.OS === 'ios' ? 'rgba(255,255,255,0.85)' : 'rgba(255,255,255,0.95)',
+          backgroundColor: Platform.OS === 'ios' ? '#1A4782' : '#1A4782',
         }}>
+          {/* Admin buttons */}
+          {isAdmin && (
+            <View style={{
+              position: 'absolute',
+              top: 16,
+              right: 16,
+              flexDirection: 'row',
+              gap: 8,
+              zIndex: 10,
+            }}>
+              <ModernEditButton 
+                onPress={onEdit || (() => {})} 
+                size="small"
+              />
+              <ModernDeleteButton 
+                onPress={onDelete || (() => {})} 
+                size="small"
+              />
+            </View>
+          )}
+          
           <View style={{ flexDirection: 'row-reverse', alignItems: 'flex-start' }}>
             {/* Gradient Icon Circle */}
      
@@ -164,9 +193,9 @@ const ModernClassCard = ({ cls, index, onPress }: { cls: ClassData; index: numbe
               {/* Course Name with gradient text effect */}
               <Text 
                 style={{
-                  fontSize: 22,
+                  fontSize: 30,
                   fontWeight: '800',
-                  color: '#1a202c',
+                  color: 'white',
                   textAlign: 'left',
                   marginBottom: 8,
                   fontFamily: 'Heebo-ExtraBold',
@@ -180,8 +209,8 @@ const ModernClassCard = ({ cls, index, onPress }: { cls: ClassData; index: numbe
               {cls.description && (
                 <Text 
                   style={{
-                    fontSize: 16,
-                    color: '#4a5568',
+                    fontSize: 22,
+                    color: 'white',
                     textAlign: 'left',
                     marginBottom: 16,
                     marginRight: 1,
@@ -241,7 +270,7 @@ const ModernClassCard = ({ cls, index, onPress }: { cls: ClassData; index: numbe
                 style={{
                   width: 40,
                   height: 40,
-                  backgroundColor: 'rgba(0,0,0,0.05)',
+                  backgroundColor: 'white',
                   borderRadius: 20,
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -372,7 +401,7 @@ export default function Index() {
             <View style={{ marginBottom: 24 }}>
               <View 
                 style={{
-                  backgroundColor: 'rgba(255,255,255,0.9)',
+                  backgroundColor: '#1A4782',
                   borderRadius: 24,
                   height: 60,
                   borderWidth: 1,
@@ -542,6 +571,15 @@ export default function Index() {
                   cls={cls}
                   index={index}
                   onPress={() => router.push(`/classes/${cls.id}`)}
+                  isAdmin={isAdmin}
+                  onEdit={() => {
+                    // TODO: Navigate to edit page
+                    router.push(`/edit-class/${cls.id}`);
+                  }}
+                  onDelete={() => {
+                    // TODO: Implement delete functionality
+                    console.log('Delete class:', cls.id);
+                  }}
                 />
               ))
             ) : (

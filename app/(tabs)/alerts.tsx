@@ -195,14 +195,14 @@ export default function AlertsScreen() {
   const renderAlertSkeleton = () => (
     <View className="px-4">
       {[1, 2, 3].map((i) => (
-        <View key={i} className="bg-white rounded-2xl mb-4 p-5 border border-[#1A4782]" style={{
+        <View key={i} className="bg-[#1A4782] rounded-2xl mb-4 p-5 border border-[#1A4782]" style={{
           shadowColor: '#1A4782',
           shadowOffset: { width: 0, height: 4 },
           shadowOpacity: 0.1,
           shadowRadius: 8,
           elevation: 5,
         }}>
-          <View className="bg-gray-200 h-6 w-3/4 rounded mb-3 animate-pulse" />
+          <View className="bg-[#1A4782] h-6 w-3/4 rounded mb-3 animate-pulse" />
           <View className="bg-gray-200 h-4 w-full rounded mb-2 animate-pulse" />
           <View className="bg-gray-200 h-4 w-5/6 rounded mb-4 animate-pulse" />
           <View className="bg-gray-200 h-3 w-1/3 rounded animate-pulse" />
@@ -226,7 +226,7 @@ export default function AlertsScreen() {
 
   const renderEmptyState = () => (
     <View className="flex-1 justify-center items-center px-8 py-20">
-      <View className="bg-white rounded-full p-8 mb-6" style={{
+      <View className="bg-[#1A4782] rounded-full p-8 mb-6" style={{
         shadowColor: '#1A4782',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
@@ -323,7 +323,7 @@ export default function AlertsScreen() {
                     activeOpacity={0.95}
                     onPressIn={() => animatePress(alert.id)}
                     onPress={() => messageNeedsTruncation && toggleReadMore(alert.id)}
-                    className="bg-white p-6 rounded-2xl mb-4 border-2 border-blue-100"
+                    className="bg-[#1A4782] p-6 rounded-2xl mb-4 border-2 border-blue-100"
                     style={{
                       shadowColor: '#1A4782',
                       shadowOffset: { width: 0, height: 4 },
@@ -348,7 +348,7 @@ export default function AlertsScreen() {
                     
                     {/* Alert Title */}
                     {alert.title && alert.title.trim() !== '' && (
-                      <Text className="text-2xl font-heebo-bold text-gray-900 mb-3 text-right leading-relaxed">
+                      <Text className="text-3xl font-heebo-bold text-white mb-3 text-right leading-relaxed">
                         {alert.title}
                       </Text>
                     )}
@@ -357,7 +357,7 @@ export default function AlertsScreen() {
                     {alert.message && alert.message.trim() !== '' && (
                       <View className="mb-4">
                         <Text
-                          className="text-lg font-heebo-regular text-gray-700 text-right leading-relaxed"
+                          className="text-2xl font-heebo-regular text-white text-right leading-relaxed"
                           numberOfLines={isExpanded || !messageNeedsTruncation ? undefined : 3}
                         >
                           {alert.message}
@@ -377,7 +377,7 @@ export default function AlertsScreen() {
 
                     {/* Alert Metadata */}
                     <View className="flex-row justify-between items-center pt-4 border-t border-gray-100">
-                      <Text className="text-sm text-gray-500 font-heebo-light">
+                      <Text className="text-2xl text-white font-heebo-light">
                         {formatDate(alert.createdAt)}
                       </Text>
                       

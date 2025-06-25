@@ -22,33 +22,48 @@ interface ModernActionButtonsProps {
 
 // Your app's color scheme
 const APP_COLORS = {
-  edit: '#1A4782',      // Your brand blue
-  delete: '#DC2626',    // Clean red
-  add: '#F89A1E',       // Your brand yellow/orange
+  edit: {
+    background: '#FFFFFF', // White background
+    text: '#F89A1E',
+    icon: '#F89A1E'
+  },
+  delete: {
+    background: '#FFFFFF', // White background
+    text: '#DC2626',
+    icon: '#DC2626'
+  },
+  add: {
+    background: '#FFFFFF', // White background
+    text: '#F89A1E',
+    icon: '#F89A1E'
+  },
 };
 
 const getSizeStyles = (size: 'small' | 'medium' | 'large') => {
   switch (size) {
     case 'small':
       return {
-        paddingHorizontal: 12,
+        paddingHorizontal: 10,
         paddingVertical: 6,
-        fontSize: 12,
-        iconSize: 16,
+        fontSize: 11,
+        iconSize: 14,
+        gap: 4,
       };
     case 'large':
       return {
-        paddingHorizontal: 20,
-        paddingVertical: 12,
-        fontSize: 16,
-        iconSize: 20,
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        fontSize: 15,
+        iconSize: 18,
+        gap: 6,
       };
     default: // medium
       return {
-        paddingHorizontal: 16,
+        paddingHorizontal: 12,
         paddingVertical: 8,
-        fontSize: 14,
-        iconSize: 18,
+        fontSize: 13,
+        iconSize: 16,
+        gap: 5,
       };
   }
 };
@@ -61,7 +76,7 @@ const ModernEditButton: React.FC<ModernActionButtonProps> = ({
   const sizeStyles = getSizeStyles(size);
   
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };
 
@@ -71,34 +86,25 @@ const ModernEditButton: React.FC<ModernActionButtonProps> = ({
       disabled={disabled}
       style={({ pressed }) => [
         {
-          flexDirection: 'row-reverse', // RTL for Hebrew
+          width: 56,
+          height: 56,
+          backgroundColor: APP_COLORS.edit.background,
+          borderRadius: 28, // Full circle
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: APP_COLORS.edit, // Your brand blue
-          paddingHorizontal: sizeStyles.paddingHorizontal,
-          paddingVertical: sizeStyles.paddingVertical,
-          borderRadius: 12,
-          shadowColor: APP_COLORS.edit,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.25, // Slightly reduced for subtlety
-          shadowRadius: 8,
-          elevation: 8,
-          transform: [{ scale: pressed ? 0.95 : 1 }],
+          borderWidth: 1,
+          borderColor: 'rgba(0, 0, 0, 0.08)',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 10,
+          transform: [{ scale: pressed ? 0.9 : 1 }],
           opacity: disabled ? 0.5 : 1,
         },
       ]}
     >
-      <Text style={{
-        color: APP_COLORS.edit,
-        fontWeight: '600',
-        marginRight: 6, // Changed to marginRight for RTL
-        fontSize: sizeStyles.fontSize,
-        fontFamily: 'Heebo-SemiBold', // Your app's font
-        textAlign: 'right',
-      }}>
-        עריכה
-      </Text>
-      <Ionicons name="create-outline" size={sizeStyles.iconSize} color="#1A4782" />
+      <Ionicons name="create-outline" size={20} color={APP_COLORS.edit.icon} />
     </Pressable>
   );
 };
@@ -111,7 +117,7 @@ const ModernDeleteButton: React.FC<ModernActionButtonProps> = ({
   const sizeStyles = getSizeStyles(size);
   
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };
 
@@ -121,34 +127,25 @@ const ModernDeleteButton: React.FC<ModernActionButtonProps> = ({
       disabled={disabled}
       style={({ pressed }) => [
         {
-          flexDirection: 'row-reverse', // RTL for Hebrew
+          width: 56,
+          height: 56,
+          backgroundColor: APP_COLORS.delete.background,
+          borderRadius: 28, // Full circle
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: APP_COLORS.delete, // Clean red
-          paddingHorizontal: sizeStyles.paddingHorizontal,
-          paddingVertical: sizeStyles.paddingVertical,
-          borderRadius: 12,
-          shadowColor: APP_COLORS.delete,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          elevation: 8,
-          transform: [{ scale: pressed ? 0.95 : 1 }],
+          borderWidth: 1,
+          borderColor: 'rgba(0, 0, 0, 0.08)',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 10,
+          transform: [{ scale: pressed ? 0.9 : 1 }],
           opacity: disabled ? 0.5 : 1,
         },
       ]}
     >
-      <Text style={{
-        color: '#DC2626',
-        fontWeight: '600',
-        marginRight: 6, // Changed to marginRight for RTL
-        fontSize: sizeStyles.fontSize,
-        fontFamily: 'Heebo-SemiBold', // Your app's font
-        textAlign: 'right',
-      }}>
-        מחק
-      </Text>
-      <Ionicons name="trash-outline" size={sizeStyles.iconSize} color="#DC2626" />
+      <Ionicons name="trash-outline" size={20} color={APP_COLORS.delete.icon} />
     </Pressable>
   );
 };
@@ -161,7 +158,7 @@ const ModernAddButton: React.FC<ModernActionButtonProps> = ({
   const sizeStyles = getSizeStyles(size);
   
   const handlePress = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     onPress();
   };
 
@@ -171,34 +168,25 @@ const ModernAddButton: React.FC<ModernActionButtonProps> = ({
       disabled={disabled}
       style={({ pressed }) => [
         {
-          flexDirection: 'row-reverse', // RTL for Hebrew
+          width: 56,
+          height: 56,
+          backgroundColor: 'white',
+          borderRadius: 28, // Full circle
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: APP_COLORS.add, // Your brand yellow
-          paddingHorizontal: sizeStyles.paddingHorizontal,
-          paddingVertical: sizeStyles.paddingVertical,
-          borderRadius: 12,
-          shadowColor: APP_COLORS.add,
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.25,
-          shadowRadius: 8,
-          elevation: 8,
-          transform: [{ scale: pressed ? 0.95 : 1 }],
+          borderWidth: 1,
+          borderColor: 'rgba(0, 0, 0, 0.08)',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.15,
+          shadowRadius: 10,
+          elevation: 10,
+          transform: [{ scale: pressed ? 0.9 : 1 }],
           opacity: disabled ? 0.5 : 1,
         },
       ]}
     >
-      <Text style={{
-        color: '#F89A1E',
-        fontWeight: '600',
-        marginRight: 6, // Changed to marginRight for RTL
-        fontSize: sizeStyles.fontSize,
-        fontFamily: 'Heebo-SemiBold', // Your app's font
-        textAlign: 'right',
-      }}>
-        הוסף
-      </Text>
-      <Ionicons name="add" size={sizeStyles.iconSize} color="#F89A1E" />
+      <Ionicons name="add" size={20} color={APP_COLORS.add.icon} />
     </Pressable>
   );
 };
@@ -216,7 +204,7 @@ const ModernActionButtons: React.FC<ModernActionButtonsProps> = ({
   return (
     <View style={{ 
       flexDirection: 'row-reverse', // RTL layout
-      gap: 12, 
+      gap: 8, // Reduced gap for pill buttons
       alignItems: 'center',
       justifyContent: 'flex-end' // Align to right for Hebrew
     }}>
