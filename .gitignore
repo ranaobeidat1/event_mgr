@@ -47,3 +47,4 @@ app-example
 expo-env.d.ts
 # @end expo-clifirebase-service-account.json
 ./firebase-service-account.json
+firebase-service-account.json
