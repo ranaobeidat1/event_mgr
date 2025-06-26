@@ -1,32 +1,33 @@
 // app/_layout.tsx
-import React, { createContext, useContext, useEffect, useState, } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { Stack, SplashScreen } from "expo-router";
 import { useFonts } from "expo-font";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "../FirebaseConfig";
-import { View, ActivityIndicator, I18nManager, } from "react-native";
+import { View, ActivityIndicator, I18nManager } from "react-native";
 import "./global.css";
 
-// Import notification functions
+// Import notification helpers
 import {
   registerForPushNotificationsAsync,
   saveFCMTokenToFirestore,
   setupNotificationListeners,
   cleanupNotificationListeners,
-  removeFCMTokenFromFirestore
+  removeFCMTokenFromFirestore,
 } from "./utils/notificationService";
 
-
+// Disable RTL
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
+
 // Auth context to share user state
-type AuthContextType = { 
+type AuthContextType = {
   user: User | null;
   isGuest: boolean;
   setIsGuest: (value: boolean) => void;
 };
-const AuthContext = createContext<AuthContextType>({ 
-  user: null, 
+const AuthContext = createContext<AuthContextType>({
+  user: null,
   isGuest: false,
   setIsGuest: () => {},
 });
@@ -47,56 +48,58 @@ export default function RootLayout() {
     Tahoma: require("../assets/fonts/tahoma.ttf"),
   });
 
-  // ② Track auth state
+  // ② Track auth & guest state
   const [user, setUser] = useState<User | null>(null);
   const [isGuest, setIsGuest] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
-  // ③ Setup notifications (only for authenticated users, not guests)
+  // ③ Listen for auth changes, handle FCM registration & cleanup
   useEffect(() => {
-    // Skip notification setup for guest users
-    if (isGuest) return;
-
-    const subscriptions = setupNotificationListeners();
-    
-    return () => {
-      cleanupNotificationListeners(subscriptions);
-    };
-  }, [isGuest]);
-
-  // ④ Handle authentication and FCM token
-  useEffect(() => {
-    // Skip auth state change handling if in guest mode
     if (isGuest) {
-      if (initializing) setInitializing(false);
+      setInitializing(false);
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+    let notificationSubscriptions: any = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (u) => {
       setUser(u);
-      
+
       if (u) {
-        // User is signed in, register for notifications
+        // ✅ On sign-in: request permission & get token
         try {
           const token = await registerForPushNotificationsAsync();
           if (token) {
             await saveFCMTokenToFirestore(u.uid, token);
-            console.log('✅ User logged in and FCM token saved');
+            console.log("✅ FCM token saved:", token);
           }
-        } catch (error) {
-          console.error('Error setting up notifications:', error);
+        } catch (err) {
+          console.error("Error getting push token:", err);
         }
+
+        // ▶️ Start listening for incoming notifications
+        notificationSubscriptions = setupNotificationListeners();
+        return () => cleanupNotificationListeners(notificationSubscriptions);
       } else {
-        // User logged out, remove FCM token
-        console.log('❌ User logged out');
+        // ❌ On sign-out: remove token from Firestore
+        if (user?.uid) {
+          await removeFCMTokenFromFirestore(user.uid);
+          console.log("❌ FCM token removed");
+        }
       }
-      
+
       if (initializing) setInitializing(false);
     });
-    return unsubscribe;
+
+    return () => {
+      unsubscribeAuth();
+      if (notificationSubscriptions) {
+        cleanupNotificationListeners(notificationSubscriptions);
+      }
+    };
   }, [isGuest]);
 
-  // ⑤ Show splash/loading until fonts & auth are ready
+  // ④ Show splash/loading until fonts & auth are ready
   if (!fontsLoaded || initializing) {
     SplashScreen.preventAutoHideAsync();
     return (
@@ -107,7 +110,7 @@ export default function RootLayout() {
   }
   SplashScreen.hideAsync();
 
-  // ⑥ Provide auth context and render navigator
+  // ⑤ Provide auth context and render your navigation stack
   return (
     <AuthContext.Provider value={{ user, isGuest, setIsGuest }}>
       <Stack>

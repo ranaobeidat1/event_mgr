@@ -1,4 +1,3 @@
-// app/utils/notificationService.ts
 import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 import Constants from 'expo-constants';
@@ -6,7 +5,6 @@ import { Platform } from 'react-native';
 import { db } from '../../FirebaseConfig';
 import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
-// Configure how notifications are handled when the app is in the foreground
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
@@ -15,14 +13,6 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// Interface for notification data
-export interface NotificationData {
-  title: string;
-  body: string;
-  data?: any;
-}
-
-// Get push notification token
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   let token: string | null = null;
 
@@ -51,18 +41,20 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     
     try {
       // Get project ID from your app config
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
+      
       if (!projectId) {
+        console.error('Project ID not found in Constants');
         throw new Error('Project ID not found');
       }
       
       token = (await Notifications.getExpoPushTokenAsync({
-        projectId: projectId as string,
+        projectId: projectId,
       })).data;
       
-      console.log('Push token:', token);
+      console.log('✅ Push token generated:', token);
     } catch (error) {
-      console.error('Error getting push token:', error);
+      console.error('❌ Error getting push token:', error);
       return null;
     }
   } else {
@@ -83,25 +75,9 @@ export async function saveFCMTokenToFirestore(userId: string, token: string): Pr
       platform: Platform.OS,
     }, { merge: true });
     
-    console.log('FCM token saved to Firestore');
+    console.log('✅ FCM token saved to Firestore');
   } catch (error) {
-    console.error('Error saving FCM token:', error);
-  }
-}
-
-// Update FCM token in Firestore
-export async function updateFCMTokenInFirestore(userId: string, token: string): Promise<void> {
-  try {
-    const tokenRef = doc(db, 'fcmTokens', userId);
-    await updateDoc(tokenRef, {
-      token,
-      updatedAt: new Date(),
-      platform: Platform.OS,
-    });
-    
-    console.log('FCM token updated in Firestore');
-  } catch (error) {
-    console.error('Error updating FCM token:', error);
+    console.error('❌ Error saving FCM token:', error);
   }
 }
 
@@ -111,29 +87,20 @@ export async function removeFCMTokenFromFirestore(userId: string): Promise<void>
     const tokenRef = doc(db, 'fcmTokens', userId);
     await deleteDoc(tokenRef);
     
-    console.log('FCM token removed from Firestore');
+    console.log('✅ FCM token removed from Firestore');
   } catch (error) {
-    console.error('Error removing FCM token:', error);
+    console.error('❌ Error removing FCM token:', error);
   }
 }
 
 // Set up notification listeners
 export function setupNotificationListeners() {
-  // Handle notification received while app is in foreground
   const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
-    console.log('Notification received in foreground:', notification);
+    console.log('📱 Notification received in foreground:', notification);
   });
 
-  // Handle notification tap (when app is in background or closed)
   const backgroundSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-    console.log('Notification tapped:', response);
-    
-    // You can navigate to specific screens based on notification data
-    const notificationData = response.notification.request.content.data;
-    if (notificationData?.screen) {
-      // Navigate to specific screen
-      // router.push(notificationData.screen);
-    }
+    console.log('📱 Notification tapped:', response);
   });
 
   return {

@@ -52,7 +52,8 @@
           "icon": "./assets/images/notification-icon.png",
           "color": "#1A4782",
           "defaultChannel": "default",
-          "backgroundColor": "#1A4782"
+          "backgroundColor": "#1A4782",
+          "useNextNotificationsApi": true
         }
       ]
     ],
