@@ -28,6 +28,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Picker } from '@react-native-picker/picker';
 import type { Timestamp } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface AlertData {
   id: string;
@@ -195,18 +196,33 @@ export default function PostsScreen() {
           ברוכים הבאים לאפליקציה שלנו!
         </Text>
 
-        <View className="bg-[#1A4782] p-4 mx-4 rounded-2xl mb-4">
-          <Text className="text-white text-right text-lg mb-2">התראות אחרונות</Text>
-          {alerts.map(a => (
-            <View key={a.id} className="bg-white rounded-2xl p-4 mb-3 overflow-hidden">
-              <View className="absolute top-2 left-0 w-1/2 h-1 bg-white opacity-20 rotate-12" />
-              {a.title && (
-                <Text className="font-heebo-bold text-[#1A4782] mb-1 text-right">{a.title}</Text>
-              )}
-              <Text className="text-gray-800 text-base text-right">{a.message}</Text>
-            </View>
-          ))}
-        </View>
+        {/* Notification Rectangle */}
+       <View style={{
+  borderRadius: 20,
+  padding: 2,
+  backgroundColor: '#1A4782',
+  shadowColor: '#1A4782',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0.9,      // Higher for more intense glow
+  shadowRadius: 20,        // Bigger radius for larger spread
+  elevation: 20,           // Stronger Android glow
+  marginHorizontal: 16,
+  marginBottom: 16,
+}}>
+  <View className="bg-white rounded-2xl overflow-hidden p-4">
+    
+    <Text className="text-[#1A4782] font-heebo-bold text-right text-lg mb-2">התראות אחרונות</Text>
+    {alerts.map((a) => (
+      <View key={a.id} className="bg-[#1A4782] rounded-2xl p-4 mb-3">
+        {a.title && (
+          <Text className="text-white font-heebo-bold text-xl text-right mb-1">{a.title}</Text>
+        )}
+        <Text className="text-white text-base text-right font-tahoma">{a.message}</Text>
+      </View>
+    ))}
+  </View>
+</View>
+
 
         <Text className="text-[#1A4782] text-xl font-heebo-bold text-center mb-2 mt-4">
           הקורסים שלנו
@@ -259,13 +275,18 @@ export default function PostsScreen() {
             </View>
           ))}
           {isAdmin && circles.length < 6 && (
-            <TouchableOpacity
-              onPress={() => setModalVisible(true)}
-              className="px-4 py-3 bg-[#1A4782] rounded-md items-center"
-            >
-              <Text className="text-white font-bold">+ הוספת כיתה</Text>
-            </TouchableOpacity>
-          )}
+  <View className="items-center relative mx-3">
+    <TouchableOpacity
+      onPress={() => setModalVisible(true)}
+      className="w-28 h-28 rounded-full border-2 border-dashed border-gray-400 justify-center items-center"
+      activeOpacity={0.8}
+    >
+      <View className="w-12 h-12 rounded-full bg-[#1A4782] justify-center items-center">
+        <Text className="text-white text-3xl font-bold">+</Text>
+      </View>
+    </TouchableOpacity>
+  </View>
+)}
         </View>
 
         <View className="flex-row justify-center mb-20 mt-2">
@@ -325,3 +346,5 @@ export default function PostsScreen() {
     </SafeAreaView>
   );
 }
+
+import { StyleSheet } from 'react-native'; // Add this at the bottom or top

@@ -39,7 +39,7 @@ const PostItem = ({ item }: { item: Post }) => {
     return (
       <TouchableOpacity
         onPress={goToDetail}
-        className="m-2 overflow-hidden bg-white rounded-lg items-center"
+        className="m-2 overflow-hidden bg-white rounded-3xl items-center"
       >
         <Image
           source={{ uri: images[0] }}
@@ -59,38 +59,45 @@ const PostItem = ({ item }: { item: Post }) => {
   }
 
   // Two images
-  if (total === 2) {
-    return (
-      <View className="m-2 overflow-hidden bg-white rounded-lg">
-        <View className="flex-row justify-center items-center">
-          {images.map((uri, idx) => (
-            <TouchableOpacity key={idx} onPress={goToDetail}>
-              <Image
-                source={{ uri }}
-                className="w-[500px] h-[500px] mx-0.25 border border-white"
-                resizeMode="cover"
-              />
-            </TouchableOpacity>
-          ))}
-        </View>
-        <TouchableOpacity
-          onPress={goToDetail}
-          className="absolute bottom-0 left-0 p-4 bg-[#1A4782] w-full"
-        >
-          <Text className="text-xl font-heebo-bold text-white text-right">
-            {item.title}
-          </Text>
-        </TouchableOpacity>
+ if (total === 2) {
+  const cellSize = SCREEN_WIDTH / 2;
+
+  return (
+    <View className="m-2 overflow-hidden bg-white rounded-2xl">
+      <View className="flex-row justify-center items-center">
+        {images.map((uri, idx) => (
+          <TouchableOpacity key={idx} onPress={goToDetail}>
+            <Image
+              source={{ uri }}
+              style={{
+                width: cellSize,
+                height: cellSize, // 👈 Make image a perfect square
+                borderWidth: 1,
+                borderColor: "#FFFFFF",
+              }}
+              resizeMode="cover" // or "contain" if you prefer showing full image
+            />
+          </TouchableOpacity>
+        ))}
       </View>
-    );
-  }
+      <TouchableOpacity
+        onPress={goToDetail}
+        className="p-4 bg-[#1A4782] w-full"
+      >
+        <Text className="text-xl font-heebo-bold text-white text-right">
+          {item.title}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
   // Three images
   if (total === 3) {
     return (
       <TouchableOpacity
         onPress={goToDetail}
-        className="m-2 rounded-lg overflow-hidden bg-white"
+        className="m-2 rounded-3xl overflow-hidden bg-white"
       >
         <View
           style={{
@@ -144,7 +151,7 @@ const PostItem = ({ item }: { item: Post }) => {
     return (
       <TouchableOpacity
         onPress={goToDetail}
-        className="m-2 overflow-hidden bg-white rounded-lg"
+        className="m-2 overflow-hidden bg-white rounded-3xl"
       >
         <View
           style={{

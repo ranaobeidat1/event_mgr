@@ -17,9 +17,9 @@ import { getUser, type UserData } from "../utils/firestoreUtils";
 
 // --- Notification setup imports ---
 import * as Notifications from "expo-notifications";
-import { auth, db } from "../../FirebaseConfig"; // 🔄 Updated import
+import { auth, db } from "../../FirebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth"; // 🔄 Needed for login persistence
+import { onAuthStateChanged } from "firebase/auth";
 // --- End notification setup imports ---
 
 I18nManager.allowRTL(false);
@@ -62,7 +62,6 @@ export default function TabsLayout() {
   const router = useRouter();
   const { user: authUser, isGuest, setIsGuest } = useAuth();
 
-  // ➕ Add persistent login tracking
   const [user, setUser] = useState(authUser ?? null);
   const [initializing, setInitializing] = useState(true);
 
@@ -98,12 +97,7 @@ export default function TabsLayout() {
   }, [user, isGuest]);
 
   useEffect(() => {
-    if (isGuest) {
-      setLoadingProfile(false);
-      return;
-    }
-
-    if (!user) {
+    if (isGuest || !user) {
       setLoadingProfile(false);
       return;
     }
@@ -218,7 +212,7 @@ export default function TabsLayout() {
         </View>
       </View>
 
-      {/* Tabs */}
+      {/* Reversed Tabs */}
       <Tabs
         screenOptions={{
           tabBarItemStyle: { justifyContent: "center", alignItems: "center" },
@@ -231,46 +225,20 @@ export default function TabsLayout() {
         }}
       >
         <Tabs.Screen
-          name="index"
+          name="gallery"
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""
-                }`}
-              >
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""}`}>
                 <Image
-                  source={require("../../assets/icons/Home.png")}
+                  source={require("../../assets/icons/gallery.png")}
                   className="w-12 h-12 mt-2"
                   style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
                 />
               </View>
             ),
             tabBarLabel: () => (
-              <Text className="text-xl text-white font-heebo-bold mt-7">בית</Text>
-            ),
-          }}
-        />
-        <Tabs.Screen
-          name="alerts"
-          options={{
-            headerShown: false,
-            tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused ? "bg-white p-2 rounded-full mt-8 w-14 h-14" : ""
-                }`}
-              >
-                <Image
-                  source={require("../../assets/icons/bell.png")}
-                  className="w-12 h-12 mt-2"
-                  style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
-                />
-              </View>
-            ),
-            tabBarLabel: () => (
-              <Text className="text-xl text-white font-heebo-bold mt-7">עדכונים</Text>
+              <Text className="text-xl text-white font-heebo-bold mt-7">גלריה</Text>
             ),
           }}
         />
@@ -279,11 +247,7 @@ export default function TabsLayout() {
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""
-                }`}
-              >
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""}`}>
                 <Image
                   source={require("../../assets/icons/classIcon.png")}
                   className="w-12 h-12 mt-2"
@@ -297,24 +261,38 @@ export default function TabsLayout() {
           }}
         />
         <Tabs.Screen
-          name="gallery"
+          name="alerts"
           options={{
             headerShown: false,
             tabBarIcon: ({ focused }) => (
-              <View
-                className={`flex justify-center items-center mt-6 ${
-                  focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""
-                }`}
-              >
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-2 rounded-full mt-8 w-14 h-14" : ""}`}>
                 <Image
-                  source={require("../../assets/icons/gallery.png")}
+                  source={require("../../assets/icons/bell.png")}
                   className="w-12 h-12 mt-2"
                   style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
                 />
               </View>
             ),
             tabBarLabel: () => (
-              <Text className="text-xl text-white font-heebo-bold mt-7">גלריה</Text>
+              <Text className="text-xl text-white font-heebo-bold mt-7">עדכונים</Text>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            headerShown: false,
+            tabBarIcon: ({ focused }) => (
+              <View className={`flex justify-center items-center mt-6 ${focused ? "bg-white p-3 rounded-full mt-8 w-14 h-14" : ""}`}>
+                <Image
+                  source={require("../../assets/icons/Home.png")}
+                  className="w-12 h-12 mt-2"
+                  style={{ tintColor: focused ? "#1A4782" : "#FFFFFF" }}
+                />
+              </View>
+            ),
+            tabBarLabel: () => (
+              <Text className="text-xl text-white font-heebo-bold mt-7">בית</Text>
             ),
           }}
         />

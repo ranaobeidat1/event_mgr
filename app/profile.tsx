@@ -10,7 +10,6 @@ import {
   TextInput,
   Alert,
   Linking,
-  I18nManager,
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
@@ -24,8 +23,6 @@ import {
 } from 'firebase/auth'
 import { doc, updateDoc } from 'firebase/firestore'
 
-
-
 const WHATSAPP_URL =
   'https://api.whatsapp.com/send/?phone=0533551455&text=%D7%A9%D7%9C%D7%95%D7%9D%2C+%D7%91%D7%90%D7%AA%D7%99+%D7%93%D7%A8%D7%9A+%D7%94%D7%90%D7%AA%D7%A8&type=phone_number&app_absent=0'
 
@@ -34,7 +31,6 @@ const Profile = () => {
   const [userData, setUserData] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
-  // modals + form state
   const [editModalVisible, setEditModalVisible] = useState(false)
   const [newFirstName, setNewFirstName] = useState('')
   const [newLastName, setNewLastName] = useState('')
@@ -61,7 +57,6 @@ const Profile = () => {
     fetchUser()
   }, [])
 
-  // seed edit form
   useEffect(() => {
     if (userData) {
       setNewFirstName(userData.firstName)
@@ -76,39 +71,36 @@ const Profile = () => {
   }
 
   const handleMenuPress = (label: string) => {
-    const key = label
-    if (key === 'צור קשר') {
+    if (label === 'צור קשר') {
       Linking.openURL(WHATSAPP_URL).catch(console.error)
-    } else if (key === 'מידע אישי') {
+    } else if (label === 'מידע אישי') {
       setEditModalVisible(true)
-    } else if (key === 'כניסה ואבטחה') {
+    } else if (label === 'כניסה ואבטחה') {
       setPasswordModalVisible(true)
-    } else if (key === 'ניהול משתמשים') {
+    } else if (label === 'ניהול משתמשים') {
       router.push('/users')
-    } else if (key === 'רשימת נרשמים') {
+    } else if (label === 'רשימת נרשמים') {
       router.push('/all-registrations')
-    } else if (key === 'נתונים סטטיסטיים') {
+    } else if (label === 'נתונים סטטיסטיים') {
       router.push('/statistics')
     }
   }
 
   if (loading) {
     return (
-      <SafeAreaView className="flex-1 bg-[#F5F6FA] justify-center items-center" style={{direction: 'rtl'}}>
+      <SafeAreaView className="flex-1 bg-[#F5F6FA] justify-center items-center">
         <Text>טוען…</Text>
       </SafeAreaView>
     )
   }
 
-  // Check if the user is an admin to show admin-specific options
-  const isAdmin = userData?.role === "admin";
+  const isAdmin = userData?.role === "admin"
 
   const sections = [
     [
       { label: 'מידע אישי', icon: <MaterialIcons name="person-outline" size={24}/> },
       { label: 'כניסה ואבטחה', icon: <MaterialIcons name="security" size={24}/> },
     ],
-    // Show admin section only for admin users
     ...(isAdmin ? [[
       { label: 'ניהול משתמשים', icon: <MaterialIcons name="people" size={24}/> },
       { label: 'רשימת נרשמים', icon: <MaterialIcons name="list" size={24}/> },
@@ -120,16 +112,14 @@ const Profile = () => {
   ]
 
   return (
-    <SafeAreaView className="flex-1 bg-[#F5F6FA]" style={{direction: 'rtl'}}>
-      {/* Header */}
-      <View className="flex-row-reverse items-center justify-between bg-white h-14 px-5">
+    <SafeAreaView className="flex-1 bg-[#F5F6FA]">
+      <View className="flex-row items-center justify-between bg-white h-14 px-5">
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="chevron-back" size={28} style={{transform: [{rotate: '180deg'}]}} />
+          <Ionicons name="chevron-back" size={28} />
         </TouchableOpacity>
         <Text className="text-lg font-semibold">הפרופיל</Text>
       </View>
 
-      {/* Avatar + Name */}
       <View className="items-center mb-6">
         <View className="w-full h-24 bg-[#1A4782]" />
         <View className="absolute top-16 w-full items-center">
@@ -137,42 +127,44 @@ const Profile = () => {
             <Ionicons name="person" size={40} color="#bbb" />
           </View>
         </View>
-        <Text className="mt-12 text-xl font-semibold text-gray-800" style={{textAlign: 'right'}}>
+        <Text className="mt-12 text-xl font-semibold text-gray-800 text-right">
           {userData.firstName} {userData.lastName}
         </Text>
       </View>
 
-      {/* Menu */}
       <ScrollView className="px-5">
         {sections.map((group, gi) => (
           <View key={gi} className="bg-white rounded-xl mb-4 overflow-hidden">
             {group.map((item, i) => (
               <TouchableOpacity
                 key={i}
-                className="flex-row items-center justify-end py-4 px-4 border-b border-gray-200 last:border-b-0"
+                className="flex-row-reverse items-center justify-between py-4 px-4 border-b border-gray-200 last:border-b-0"
                 onPress={() => handleMenuPress(item.label)}
               >
-                <Text className="text-base text-gray-800 text-right">
-                  {item.label}
-                </Text>
-                <View className="w-7 items-center ml-4">
-                  {item.icon}
+                <View className="flex-row-reverse items-center gap-3">
+                  <View className="w-7 items-center">
+                    {item.icon}
+                  </View>
+                  <Text className="text-base text-gray-800 text-right">
+                    {item.label}
+                  </Text>
                 </View>
               </TouchableOpacity>
             ))}
           </View>
         ))}
 
-        {/* Sign out */}
         <View className="bg-white rounded-xl mb-8 overflow-hidden">
           <TouchableOpacity
-            className="flex-row items-center justify-end py-4 px-4"
+            className="flex-row-reverse items-center justify-between py-4 px-4"
             onPress={handleSignOut}
           >
-            <Text className="text-base text-[#1A4782] font-medium text-right">
-              התנתקות
-            </Text>
-            <Ionicons name="log-out-outline" size={24} style={{marginLeft: 16}} />
+            <View className="flex-row-reverse items-center gap-3">
+              <Ionicons name="log-out-outline" size={24} />
+              <Text className="text-base text-[#1A4782] font-medium text-right">
+                התנתקות
+              </Text>
+            </View>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -185,7 +177,7 @@ const Profile = () => {
         onRequestClose={() => setEditModalVisible(false)}
       >
         <View className="flex-1 bg-black bg-opacity-50 justify-center items-center">
-          <View className="bg-white mx-6 p-6 rounded-xl shadow-lg" style={{direction: 'rtl'}}>
+          <View className="bg-white mx-6 p-6 rounded-xl shadow-lg">
             <Text className="text-lg font-semibold mb-4 text-right">ערוך שם</Text>
             <TextInput
               className="border border-gray-300 rounded px-3 py-2 mb-4 text-right"
@@ -243,7 +235,7 @@ const Profile = () => {
         onRequestClose={() => setPasswordModalVisible(false)}
       >
         <View className="flex-1 bg-black bg-opacity-50 justify-center items-center">
-          <View className="bg-white mx-6 p-6 rounded-xl shadow-lg" style={{direction: 'rtl'}}>
+          <View className="bg-white mx-6 p-6 rounded-xl shadow-lg">
             <Text className="text-lg font-semibold mb-4 text-right">שנה סיסמה</Text>
             <TextInput
               className="border border-gray-300 rounded px-3 py-2 mb-4 text-right"
