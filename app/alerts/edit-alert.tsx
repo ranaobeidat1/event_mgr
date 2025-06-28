@@ -196,7 +196,7 @@ export default function EditAlertScreen() {
           <View className="px-6 pt-5 pb-3">
             <View className="flex-row justify-end mb-4">
               <TouchableOpacity onPress={() => router.back()}>
-                <Text className="text-primary text-lg font-heebo-medium">חזרה</Text>
+                <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
               </TouchableOpacity>
             </View>
             <View className="items-center">
@@ -239,7 +239,7 @@ export default function EditAlertScreen() {
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={isSubmitting}
-              className={`bg-yellow-400 rounded-full py-4 mt-4 ${isSubmitting ? 'opacity-50' : ''}`}
+              className={`bg-[#1A4782] rounded-full py-4 mt-4 ${isSubmitting ? 'opacity-50' : ''}`}
             >
               {isSubmitting ? (
                 <View className="flex-row items-center justify-center">
@@ -249,7 +249,7 @@ export default function EditAlertScreen() {
                   </Text>
                 </View>
               ) : (
-                <Text className="text-black text-center text-xl font-heebo-bold">
+                <Text className="text-white text-center text-xl font-heebo-bold">
                   עדכן התראה
                 </Text>
               )}

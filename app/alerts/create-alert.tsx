@@ -167,7 +167,7 @@ export default function CreateAlertScreen() {
         <View className="px-6 pt-5 pb-3">
           <View className="flex-row justify-end mb-4">
             <TouchableOpacity onPress={() => router.back()}>
-              <Text className="text-primary text-lg font-heebo-medium">חזרה</Text>
+              <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
             </TouchableOpacity>
           </View>
 
@@ -301,7 +301,7 @@ export default function CreateAlertScreen() {
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={isLoading}
-            className={`bg-yellow-400 rounded-full py-4 mt-4 ${
+            className={`bg-[#1A4782] rounded-full py-4 mt-4 ${
               isLoading ? 'opacity-50' : ''
             }`}
           >
@@ -313,7 +313,7 @@ export default function CreateAlertScreen() {
                 </Text>
               </View>
             ) : (
-              <Text className="text-black text-center text-xl font-heebo-bold">
+              <Text className="text-white text-center text-xl font-heebo-bold">
                 שלח התראה
               </Text>
             )}

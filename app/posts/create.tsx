@@ -6,7 +6,10 @@ import {
   TouchableOpacity,
   ScrollView,
   Image,
-  Alert,
+  Alert,SafeAreaView,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
@@ -113,67 +116,107 @@ const CreatePostScreen = () => {
   };
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20 }}>
-      <Text className="text-2xl font-heeboBold text-[#1A4782] mb-4 text-center">
-        יצירת פוסט חדש
-      </Text>
+    <SafeAreaView className="flex-1 bg-white" style={{ direction: 'rtl' }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        className="flex-1"
+      >
 
-      <TextInput
-        placeholder="כותרת "
-        value={title}
-        onChangeText={setTitle}
-        className="border border-gray-300 rounded p-3 mb-4"
-      />
+        {/* Header */}
+        <View className="px-6 pt-5 pb-3">
+          <View className="flex-row justify-start mb-4">
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text className="text-[#1A4782] text-2xl font-heebo-medium">
+                חזרה
+              </Text>
+            </TouchableOpacity>
+          </View>
 
-      <TextInput
-        placeholder="תוכן"
-        value={content}
-        onChangeText={setContent}
-        multiline
-        numberOfLines={4}
-        className="border border-gray-300 rounded p-3 mb-4 h-32 text-top"
-      />
+          <View className="items-center">
+            <Text className="text-3xl font-bold text-[#1A4782]">
+              יצירת פוסט חדש
+            </Text>
+          </View>
+        </View>
 
-      {images.length > 0 && (
-        <ScrollView horizontal className="mb-4 space-x-2">
-          {images.map((uri, i) => (
-            <View key={i} className="relative">
-              <Image
-                source={{ uri }}
-                className="w-24 h-24 rounded"
-                resizeMode="cover"
-              />
-              <TouchableOpacity
-                onPress={() => removeImage(i)}
-                className="absolute top-0 right-0 bg-red-600 p-1 rounded-full"
-              >
-                <Text className="text-white text-xs">×</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
+        {/* Form */}
+        <ScrollView
+          className="flex-1 px-6"
+          contentContainerStyle={{ paddingBottom: 40 }}
+        >
+          {/* Title Input */}
+          <Text className="mb-1 text-start text-xl">כותרת:</Text>
+          <TextInput
+            className="border border-gray-300 rounded-lg p-2 mb-4 text-lg"
+            placeholder="כותרת הפוסט"
+            placeholderTextColor="#9CA3AF"
+            value={title}
+            onChangeText={setTitle}
+            textAlign="right"
+          />
+
+          {/* Content Input */}
+          <Text className="mb-1 text-start text-xl">תוכן:</Text>
+          <TextInput
+            className="border border-gray-300 rounded-lg p-2 mb-4 h-32 text-top text-lg"
+            placeholder="תוכן הפוסט..."
+            placeholderTextColor="#9CA3AF"
+            value={content}
+            onChangeText={setContent}
+            multiline
+            numberOfLines={4}
+            textAlign="right"
+            textAlignVertical="top"
+          />
+
+          {/* Image Management */}
+          <Text className="mb-2 text-start text-xl">תמונות:</Text>
+          {images.length > 0 && (
+            <ScrollView horizontal className="mb-4 space-x-2">
+              {images.map((uri, i) => (
+                <View key={i} className="relative">
+                  <Image
+                    source={{ uri }}
+                    className="w-24 h-24 rounded"
+                    resizeMode="cover"
+                  />
+                  <TouchableOpacity
+                    onPress={() => removeImage(i)}
+                    className="absolute top-0 right-0 bg-red-600 p-1 rounded-full"
+                  >
+                    <Text className="text-white text-xs">×</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </ScrollView>
+          )}
+
+          {/* Add Images Button */}
+          <TouchableOpacity
+            className="bg-[#1A4782] py-3 rounded-full items-center mb-6"
+            onPress={pickImages}
+            disabled={saving}
+          >
+            <Text className="text-white text-xl font-heebo-bold">
+              {saving ? 'טוען...' : 'הוסף תמונות'}
+            </Text>
+          </TouchableOpacity>
+
+          {/* Submit Button */}
+          <TouchableOpacity
+            className={`bg-[#1A4782] py-3 rounded-full items-center ${
+              saving ? 'opacity-50' : ''
+            }`}
+            onPress={handleSubmit}
+            disabled={saving}
+          >
+            <Text className="text-white text-xl font-heebo-bold">
+              {saving ? 'מפרסם...' : 'פרסם פוסט'}
+            </Text>
+          </TouchableOpacity>
         </ScrollView>
-      )}
-
-      <TouchableOpacity
-        className="bg-[#1A4782] rounded-full py-3 mb-4 items-center"
-        onPress={pickImages}
-        disabled={saving}
-      >
-        <Text className="text-white text-lg font-heeboBold">
-          הוסף תמונות
-        </Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        className="bg-yellow-400 rounded-full py-3 items-center"
-        onPress={handleSubmit}
-        disabled={saving}
-      >
-        <Text className="text-black text-lg font-heeboBold">
-          {saving ? 'שומר...' : 'פרסם פוסט'}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 };
 
