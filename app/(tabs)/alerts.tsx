@@ -259,7 +259,7 @@ export default function AlertsScreen() {
 
                 <View className="mb-3">
                   <Text
-                    className="text-white text-xl font-heebo-regular leading-relaxed text-right"
+                    className="text-white text-xl font-tahoma leading-relaxed text-right"
                     numberOfLines={isExpanded ? undefined : 4}
                   >
                     {alert.message}
