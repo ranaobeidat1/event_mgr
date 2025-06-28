@@ -15,7 +15,7 @@ import { Link, router } from 'expo-router';
 import { auth } from '../FirebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from './_layout';
-
+import { registerForPushNotificationsAsync } from './utils/notificationService';
 export default function LoginScreen() {
   const { setIsGuest } = useAuth();
   const [email, setEmail]       = useState('');
@@ -56,12 +56,23 @@ export default function LoginScreen() {
     ]).start();
   }, []);
 
-  const handleLogin = () => {
-    setError(null);
-    signInWithEmailAndPassword(auth, email.trim(), password)
-      .then(() => router.replace('/(tabs)'))
-      .catch(err => setError(err.message));
-  };
+  // make it async so we can await
+const handleLogin = async () => {
+  setError(null);
+
+  try {
+    // 1. sign-in (same as before)
+    await signInWithEmailAndPassword(auth, email.trim(), password);
+
+    // 2. NEW 👉 get + save Expo push-token for this user
+    await registerForPushNotificationsAsync();
+
+    // 3. then navigate
+    router.replace('/(tabs)');
+  } catch (err: any) {
+    setError(err.message);
+  }
+};
   
   const handleGuestLogin = () => {
     // Enable guest mode

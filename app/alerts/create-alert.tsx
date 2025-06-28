@@ -1,4 +1,7 @@
 // app/alerts/create-alert.tsx
+// -----------------------------------------------------------------------------
+// Create an alert + optionally push a notification
+// -----------------------------------------------------------------------------
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -16,13 +19,25 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
 import { db, auth } from '../../FirebaseConfig';
-import { collection, addDoc, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  serverTimestamp,
+  getDocs,
+} from 'firebase/firestore';
 
-// Interface for notification recipients
+// 🆕 helpers for tokens + push
+import {
+  getExpoTokensOfAllUsers,
+  getUserIdsRegisteredToCourse,
+  getExpoTokensFromUserIds,
+} from '../utils/firestoreUtils';
+import { sendPushNotifications } from '../utils/notificationService';
+
+// ──────────────────────────────────────────────────────────────────────────────
 interface NotificationTarget {
-  type: 'all' | 'course' | 'specific';
+  type: 'all' | 'course';
   courseId?: string;
-  userIds?: string[];
 }
 
 interface CourseData {
@@ -30,106 +45,59 @@ interface CourseData {
   name: string;
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
 export default function CreateAlertScreen() {
-  const [title, setTitle] = useState('');
-  const [message, setMessage] = useState('');
+  const [title, setTitle]             = useState('');
+  const [message, setMessage]         = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Push notification settings
-  const [sendPushNotification, setSendPushNotification] = useState(true);
-  const [notificationTarget, setNotificationTarget] = useState<NotificationTarget>({ type: 'all' });
-  const [courses, setCourses] = useState<CourseData[]>([]);
+  const [sendPush, setSendPush]         = useState(true);
+  const [target, setTarget]             = useState<NotificationTarget>({ type: 'all' });
+
+  // courses list for Picker
+  const [courses, setCourses]         = useState<CourseData[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
 
-  // Load courses for targeting
+  // ──────────────────────────────────────────────────────────
+  // Load courses once
+  // ──────────────────────────────────────────────────────────
   useEffect(() => {
     const loadCourses = async () => {
       setLoadingCourses(true);
       try {
-        const coursesSnapshot = await getDocs(collection(db, 'courses'));
-        const coursesData = coursesSnapshot.docs.map(doc => ({
-          id: doc.id,
-          name: doc.data().name
-        }));
-        setCourses(coursesData);
-      } catch (error) {
-        console.error('Error loading courses:', error);
+        const snap = await getDocs(collection(db, 'courses'));
+        setCourses(
+          snap.docs.map(d => ({ id: d.id, name: d.data().name } as CourseData))
+        );
+      } catch (err) {
+        console.error('Error loading courses:', err);
       } finally {
         setLoadingCourses(false);
       }
     };
-
     loadCourses();
   }, []);
 
-  // Get FCM tokens based on target
-  const getFCMTokensForTarget = async (target: NotificationTarget): Promise<string[]> => {
-    try {
-      if (target.type === 'all') {
-        // Get all FCM tokens
-        const tokensSnapshot = await getDocs(collection(db, 'fcmTokens'));
-        return tokensSnapshot.docs.map(doc => doc.data().token).filter(Boolean);
-      } else if (target.type === 'course' && target.courseId) {
-        // Get tokens for users registered to a specific course
-        const registrationsSnapshot = await getDocs(
-          query(collection(db, 'Registrations'), where('courseId', '==', target.courseId))
-        );
-        const userIds = registrationsSnapshot.docs.map(doc => doc.data().userId);
-        
-        if (userIds.length === 0) return [];
-        
-        // Get FCM tokens for these users
-        const tokensSnapshot = await getDocs(collection(db, 'fcmTokens'));
-        return tokensSnapshot.docs
-          .filter(doc => userIds.includes(doc.data().userId))
-          .map(doc => doc.data().token)
-          .filter(Boolean);
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('Error getting FCM tokens:', error);
-      return [];
+  // ──────────────────────────────────────────────────────────
+  // Resolve Expo push-tokens based on target
+  // ──────────────────────────────────────────────────────────
+  const getTokensForTarget = async (): Promise<string[]> => {
+    if (target.type === 'all') {
+      return await getExpoTokensOfAllUsers();
     }
+
+    if (target.type === 'course' && target.courseId) {
+      const userIds = await getUserIdsRegisteredToCourse(target.courseId);
+      return await getExpoTokensFromUserIds(userIds);
+    }
+
+    return [];
   };
 
-  // Send push notification using Expo Push API
-  const sendPushNotifications = async (tokens: string[], alertTitle: string, alertMessage: string) => {
-    if (tokens.length === 0) return;
-
-    const messages = tokens.map(token => ({
-      to: token,
-      sound: 'default',
-      title: alertTitle || 'התראה חדשה',
-      body: alertMessage,
-      data: { 
-        screen: '/(tabs)/alerts',
-        alertId: 'new' 
-      },
-    }));
-
-    try {
-      const response = await fetch('https://exp.host/--/api/v2/push/send', {
-        method: 'POST',
-        headers: {
-          Accept: 'application/json',
-          'Accept-encoding': 'gzip, deflate',
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(messages),
-      });
-
-      const result = await response.json();
-      console.log('Push notification result:', result);
-      
-      if (result.errors) {
-        console.error('Push notification errors:', result.errors);
-      }
-    } catch (error) {
-      console.error('Error sending push notifications:', error);
-    }
-  };
-
+  // ──────────────────────────────────────────────────────────
+  // Submit handler
+  // ──────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!title.trim() && !message.trim()) {
       Alert.alert('שגיאה', 'יש למלא כותרת או תוכן להתראה');
@@ -143,55 +111,51 @@ export default function CreateAlertScreen() {
       if (!user) {
         Alert.alert('שגיאה', 'משתמש לא מזוהה. אנא התחבר שוב.');
         router.replace('/login');
-        setIsSubmitting(false);
         return;
       }
 
-      // Create alert in Firestore
-      const alertData = {
-        title: title.trim(),
-        message: message.trim(),
-        createdBy: user.uid,
-        createdAt: serverTimestamp(),
-        notificationSent: sendPushNotification,
-        targetType: notificationTarget.type,
-        targetCourseId: notificationTarget.courseId || null,
-      };
+      // 1️⃣  Save alert in Firestore
+      await addDoc(collection(db, 'alerts'), {
+        title:        title.trim(),
+        message:      message.trim(),
+        createdBy:    user.uid,
+        createdAt:    serverTimestamp(),
+        notificationSent: sendPush,
+        targetType:   target.type,
+        targetCourseId: target.courseId || null,
+      });
 
-      await addDoc(collection(db, 'alerts'), alertData);
-
-      // Send push notifications if enabled
-      if (sendPushNotification) {
-        const tokens = await getFCMTokensForTarget(notificationTarget);
-        if (tokens.length > 0) {
+      // 2️⃣  Push notification (if toggled)
+      if (sendPush) {
+        const tokens = await getTokensForTarget();
+        if (tokens.length) {
           await sendPushNotifications(tokens, title.trim(), message.trim());
-          console.log(`✅ Push notifications sent to ${tokens.length} devices`);
+          console.log(`✅ Sent to ${tokens.length} devices`);
         } else {
-          console.log('⚠️ No FCM tokens found for target audience');
+          console.log('⚠️ No tokens found for this target');
         }
       }
 
       Alert.alert('הצלחה', 'ההתראה נוצרה ונשלחה בהצלחה', [
-        {
-          text: 'אישור',
-          onPress: () => router.back(),
-        },
+        { text: 'אישור', onPress: () => router.back() },
       ]);
 
-      // Reset form
+      // reset form
       setTitle('');
       setMessage('');
-      setSendPushNotification(true);
-      setNotificationTarget({ type: 'all' });
-      router.back();
-    } catch (error) {
-      console.error('Error creating alert:', error);
+      setSendPush(true);
+      setTarget({ type: 'all' });
+    } catch (err) {
+      console.error('Error creating alert:', err);
       Alert.alert('שגיאה', 'אירעה שגיאה ביצירת ההתראה.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // ──────────────────────────────────────────────────────────
+  // UI
+  // ──────────────────────────────────────────────────────────
   const isLoading = isSubmitting;
 
   return (
@@ -206,83 +170,109 @@ export default function CreateAlertScreen() {
               <Text className="text-primary text-lg font-heebo-medium">חזרה</Text>
             </TouchableOpacity>
           </View>
+
           <View className="items-center">
             <Text className="text-3xl font-heebo-bold text-primary">
               יצירת התראה חדשה
             </Text>
           </View>
         </View>
-         
-        <ScrollView 
+
+        <ScrollView
           className="flex-1 px-6"
           contentContainerStyle={{ paddingBottom: 40 }}
         >
-          {/* Title Input */}
-          <View className='mb-4'>
+          {/* title */}
+          <View className="mb-4">
             <TextInput
               className="bg-gray-100 rounded-lg px-5 py-3 text-lg font-heebo-regular text-right"
-              value={title}
-              onChangeText={setTitle}
               placeholder="כתוב את כותרת ההתראה"
               placeholderTextColor="#9CA3AF"
+              value={title}
+              onChangeText={setTitle}
             />
           </View>
 
-          {/* Message Input */}
+          {/* message */}
           <View className="mb-4">
             <TextInput
               className="bg-gray-100 rounded-lg px-5 py-3 text-lg font-heebo-regular text-right h-32"
-              value={message}
-              onChangeText={setMessage}
               placeholder="...כתוב את תוכן הודעת ההתראה כאן"
               placeholderTextColor="#9CA3AF"
+              value={message}
+              onChangeText={setMessage}
               multiline
               numberOfLines={4}
               textAlignVertical="top"
             />
           </View>
 
-          {/* Push Notification Toggle */}
+          {/* toggle */}
           <View className="mb-4 p-4 bg-gray-50 rounded-lg">
             <View className="flex-row justify-between items-center mb-3">
-              <Text className="text-lg font-heebo-bold text-gray-800">שלח התראת פוש</Text>
+              <Text className="text-lg font-heebo-bold text-gray-800">
+                שלח התראת פוש
+              </Text>
               <Switch
-                value={sendPushNotification}
-                onValueChange={setSendPushNotification}
+                value={sendPush}
+                onValueChange={setSendPush}
                 trackColor={{ false: '#D1D5DB', true: '#1A4782' }}
-                thumbColor={sendPushNotification ? '#FFFFFF' : '#F3F4F6'}
+                thumbColor={sendPush ? '#FFFFFF' : '#F3F4F6'}
               />
             </View>
-            
-            {sendPushNotification && (
+
+            {sendPush && (
               <View>
-                <Text className="text-sm text-gray-600 mb-3 text-right">בחר למי לשלוח:</Text>
-                
-                {/* Target Selection */}
+                <Text className="text-sm text-gray-600 mb-3 text-right">
+                  בחר למי לשלוח:
+                </Text>
+
+                {/* all users */}
                 <View className="mb-3">
                   <TouchableOpacity
-                    className={`p-3 rounded-lg border ${notificationTarget.type === 'all' ? 'bg-primary border-primary' : 'bg-white border-gray-300'}`}
-                    onPress={() => setNotificationTarget({ type: 'all' })}
+                    className={`p-3 rounded-lg border ${
+                      target.type === 'all'
+                        ? 'bg-primary border-primary'
+                        : 'bg-white border-gray-300'
+                    }`}
+                    onPress={() => setTarget({ type: 'all' })}
                   >
-                    <Text className={`text-right font-heebo-medium ${notificationTarget.type === 'all' ? 'text-white' : 'text-gray-800'}`}>
+                    <Text
+                      className={`text-right font-heebo-medium ${
+                        target.type === 'all' ? 'text-white' : 'text-gray-800'
+                      }`}
+                    >
                       כל המשתמשים
                     </Text>
                   </TouchableOpacity>
                 </View>
 
+                {/* course users */}
                 <View className="mb-3">
                   <TouchableOpacity
-                    className={`p-3 rounded-lg border ${notificationTarget.type === 'course' ? 'bg-primary border-primary' : 'bg-white border-gray-300'}`}
-                    onPress={() => setNotificationTarget({ type: 'course', courseId: courses[0]?.id })}
+                    className={`p-3 rounded-lg border ${
+                      target.type === 'course'
+                        ? 'bg-primary border-primary'
+                        : 'bg-white border-gray-300'
+                    }`}
+                    onPress={() =>
+                      setTarget({ type: 'course', courseId: courses[0]?.id })
+                    }
                   >
-                    <Text className={`text-right font-heebo-medium ${notificationTarget.type === 'course' ? 'text-white' : 'text-gray-800'}`}>
+                    <Text
+                      className={`text-right font-heebo-medium ${
+                        target.type === 'course'
+                          ? 'text-white'
+                          : 'text-gray-800'
+                      }`}
+                    >
                       משתמשים רשומים לחוג ספציפי
                     </Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Course Selection */}
-                {notificationTarget.type === 'course' && (
+                {/* picker */}
+                {target.type === 'course' && (
                   <View className="bg-white border border-gray-300 rounded-lg">
                     {loadingCourses ? (
                       <View className="p-4">
@@ -290,18 +280,14 @@ export default function CreateAlertScreen() {
                       </View>
                     ) : (
                       <Picker
-                        selectedValue={notificationTarget.courseId}
-                        onValueChange={(courseId) => 
-                          setNotificationTarget({ type: 'course', courseId })
+                        selectedValue={target.courseId}
+                        onValueChange={courseId =>
+                          setTarget({ type: 'course', courseId })
                         }
                         style={{ textAlign: 'right' }}
                       >
-                        {courses.map(course => (
-                          <Picker.Item 
-                            key={course.id} 
-                            label={course.name} 
-                            value={course.id} 
-                          />
+                        {courses.map(c => (
+                          <Picker.Item key={c.id} label={c.name} value={c.id} />
                         ))}
                       </Picker>
                     )}
@@ -311,11 +297,13 @@ export default function CreateAlertScreen() {
             )}
           </View>
 
-          {/* Submit Button */}
+          {/* submit */}
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={isLoading}
-            className={`bg-yellow-400 rounded-full py-4 mt-4 ${isLoading ? 'opacity-50' : ''}`}
+            className={`bg-yellow-400 rounded-full py-4 mt-4 ${
+              isLoading ? 'opacity-50' : ''
+            }`}
           >
             {isLoading ? (
               <View className="flex-row items-center justify-center">

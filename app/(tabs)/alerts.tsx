@@ -234,7 +234,7 @@ export default function AlertsScreen() {
                   {alert.message && alert.message.trim() !== '' && (
                     <View className="mb-3">
                       <Text
-                        className="text-2xl font-heebo-regular text-white text-right leading-relaxed"
+                        className="text-2xl font-tahoma text-white text-right leading-relaxed"
                         numberOfLines={isExpanded || !messageNeedsTruncation ? undefined : 3}
                       >
                         {alert.message}

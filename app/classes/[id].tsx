@@ -620,15 +620,15 @@ const styles = StyleSheet.create({
   imageGallery: {
     marginHorizontal: -20,
     marginBottom: 20,
-    maxHeight: 200,
+    maxHeight: 300,
   },
   imageContainer: {
     width: SCREEN_WIDTH,
-    height: 200,
+    height: 300,
   },
   galleryImage: {
     width: SCREEN_WIDTH,
-    height: 200, 
+    height: 300, 
   },
   modalContainer: {
     flex: 1,

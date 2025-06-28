@@ -1,21 +1,23 @@
-import * as Notifications from 'expo-notifications';
+// app/utils/notificationService.ts
+// -----------------------------------------------------------------------------
+// 1) Registers the device and stores token in Firestore
+// 2) Sends push notifications through Expo
+// -----------------------------------------------------------------------------
+
 import * as Device from 'expo-device';
-import Constants from 'expo-constants';
+import * as Notifications from 'expo-notifications';
+import axios from 'axios';
 import { Platform } from 'react-native';
-import { db } from '../../FirebaseConfig';
-import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { auth, db } from '../../FirebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
+// ──────────────────────────────────────────────────────────────────────────────
+//  REGISTER + SAVE TOKEN
+// ──────────────────────────────────────────────────────────────────────────────
 export async function registerForPushNotificationsAsync(): Promise<string | null> {
   let token: string | null = null;
 
+  // 1.  Android channel (visual config)
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'default',
@@ -25,92 +27,55 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
     });
   }
 
-  if (Device.isDevice) {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
-    
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-    
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
+  // 2.  Ask permission & get token (physical device only)
+  if (!Device.isDevice) {
+    console.log('Must use physical device for push notifications');
+    return null;
+  }
+
+  const perms = await Notifications.getPermissionsAsync();
+  if (perms.status !== 'granted') {
+    const res = await Notifications.requestPermissionsAsync();
+    if (res.status !== 'granted') {
+      console.log('Permission for notifications NOT granted');
       return null;
     }
-    
+  }
+
+  token = (await Notifications.getExpoPushTokenAsync()).data;
+  console.log('Expo push token:', token);
+
+  // 3.  Save token to Firestore ⇢ users/{uid}.expoPushToken
+  const user = auth.currentUser;
+  if (user && token) {
     try {
-      // Get project ID from your app config
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId || Constants.easConfig?.projectId;
-      
-      if (!projectId) {
-        console.error('Project ID not found in Constants');
-        throw new Error('Project ID not found');
-      }
-      
-      token = (await Notifications.getExpoPushTokenAsync({
-        projectId: projectId,
-      })).data;
-      
-      console.log('✅ Push token generated:', token);
-    } catch (error) {
-      console.error('❌ Error getting push token:', error);
-      return null;
+      await updateDoc(doc(db, 'users', user.uid), { expoPushToken: token });
+      console.log('Token saved for user', user.uid);
+    } catch (err) {
+      console.error('Could not save expo token:', err);
     }
-  } else {
-    console.log('Must use physical device for Push Notifications');
   }
 
   return token;
 }
 
-// Save FCM token to Firestore for a user
-export async function saveFCMTokenToFirestore(userId: string, token: string): Promise<void> {
-  try {
-    const tokenRef = doc(db, 'fcmTokens', userId);
-    await setDoc(tokenRef, {
-      token,
-      userId,
-      updatedAt: new Date(),
-      platform: Platform.OS,
-    }, { merge: true });
-    
-    console.log('✅ FCM token saved to Firestore');
-  } catch (error) {
-    console.error('❌ Error saving FCM token:', error);
+// ──────────────────────────────────────────────────────────────────────────────
+//  SEND MESSAGES
+// ──────────────────────────────────────────────────────────────────────────────
+export const sendPushNotifications = async (
+  tokens: string[],
+  title: string,
+  body: string
+) => {
+  if (!tokens.length) return;
+
+  const messages = tokens.map(to => ({ to, sound: 'default', title, body }));
+
+  // Expo API = 100 msgs / request
+  while (messages.length) {
+    const chunk = messages.splice(0, 100);
+    await axios.post('https://exp.host/--/api/v2/push/send', chunk, {
+      headers: { 'Content-Type': 'application/json' },
+    });
   }
-}
-
-// Remove FCM token from Firestore (when user logs out)
-export async function removeFCMTokenFromFirestore(userId: string): Promise<void> {
-  try {
-    const tokenRef = doc(db, 'fcmTokens', userId);
-    await deleteDoc(tokenRef);
-    
-    console.log('✅ FCM token removed from Firestore');
-  } catch (error) {
-    console.error('❌ Error removing FCM token:', error);
-  }
-}
-
-// Set up notification listeners
-export function setupNotificationListeners() {
-  const foregroundSubscription = Notifications.addNotificationReceivedListener(notification => {
-    console.log('📱 Notification received in foreground:', notification);
-  });
-
-  const backgroundSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-    console.log('📱 Notification tapped:', response);
-  });
-
-  return {
-    foregroundSubscription,
-    backgroundSubscription,
-  };
-}
-
-// Clean up notification listeners
-export function cleanupNotificationListeners(subscriptions: any) {
-  subscriptions.foregroundSubscription?.remove();
-  subscriptions.backgroundSubscription?.remove();
-}
+};
