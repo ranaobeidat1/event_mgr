@@ -104,7 +104,7 @@ export default function Index() {
           paddingHorizontal: 16,
           // this ensures we clear BOTH system inset + the tab bar + your extra
           paddingBottom:
-            insets.bottom + tabBarHeight + (isAdmin ? 120 : 20),
+            insets.bottom + tabBarHeight  + (isAdmin ? 12 : 20),
         }}
       >
         {/* Search */}

@@ -204,7 +204,7 @@ export default function AlertsScreen() {
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 16,
-          paddingBottom: insets.bottom + tabBarHeight + (isAdmin ? 120 : 20),
+          paddingBottom: insets.bottom + tabBarHeight ,
         }}
       >
         {filteredAlerts.length === 0 ? (
