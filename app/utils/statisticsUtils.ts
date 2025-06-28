@@ -1,9 +1,9 @@
 import { db } from '../../FirebaseConfig';
-import { 
-  collection, 
-  getDocs, 
-  query, 
-  where, 
+import {
+  collection,
+  getDocs,
+  query,
+  where,
   Timestamp,
   QueryDocumentSnapshot,
   DocumentData
@@ -18,8 +18,15 @@ export interface DashboardStats {
   activeUsers: number;
   alertsSentThisMonth: number;
   courseAnalytics: CourseAnalytics[];
+  // ← new
+  courseMonthlyRegistrations: CourseMonthlyRegistrations[];
   monthlyGrowth: MonthlyGrowth;
   weeklyData: WeeklyData[];
+}
+
+export interface CourseMonthlyRegistrations {
+  courseId: string;
+  monthlyRegistrations: number[]; // index 0 = Jan, …, 11 = Dec
 }
 
 export interface WeeklyData {
@@ -46,17 +53,14 @@ export interface GrowthData {
   percentageChange: number;
 }
 
-// Get all dashboard statistics
 export const getDashboardStats = async (): Promise<DashboardStats> => {
   try {
-    // Get current date and dates for calculations
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
-    // Fetch all data in parallel
     const [
       usersSnapshot,
       coursesSnapshot,
@@ -74,31 +78,29 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       ))
     ]);
 
-    // Calculate basic stats
     const totalUsers = usersSnapshot.size;
     const totalCourses = coursesSnapshot.size;
     const totalRegistrations = registrationsSnapshot.size;
     const totalPosts = postsSnapshot.size;
-    const alertsSentThisMonth = alertsSnapshot.docs.filter(doc => 
-      doc.data().notificationSent === true
-    ).length;
+    const alertsSentThisMonth = alertsSnapshot.docs
+      .filter(d => d.data().notificationSent === true).length;
 
-    // Calculate new registrations in last 30 days
-    const newRegistrationsLast30Days = registrationsSnapshot.docs.filter(doc => {
-      const registrationDate = doc.data().registrationDate?.toDate();
-      return registrationDate && registrationDate >= thirtyDaysAgo;
-    }).length;
+    const newRegistrationsLast30Days = registrationsSnapshot.docs
+      .filter(d => {
+        const dt = d.data().registrationDate?.toDate();
+        return dt && dt >= thirtyDaysAgo;
+      }).length;
 
-    // Calculate active users (users created in last 30 days)
-    const activeUsers = usersSnapshot.docs.filter(doc => {
-      const createdAt = doc.data().createdAt?.toDate();
-      return createdAt && createdAt >= thirtyDaysAgo;
-    }).length;
+    const activeUsers = usersSnapshot.docs
+      .filter(d => {
+        const dt = d.data().createdAt?.toDate();
+        return dt && dt >= thirtyDaysAgo;
+      }).length;
 
-    // Course Analytics
+    // 1) courseAnalytics
     const courseAnalytics = await getCourseAnalytics(coursesSnapshot, registrationsSnapshot);
 
-    // Monthly Growth
+    // 2) monthlyGrowth
     const monthlyGrowth = await calculateMonthlyGrowth(
       registrationsSnapshot,
       usersSnapshot,
@@ -107,8 +109,26 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       endOfLastMonth
     );
 
-    // Weekly Data
+    // 3) weeklyData
     const weeklyData = calculateWeeklyData(registrationsSnapshot);
+
+    // 4) courseMonthlyRegistrations
+    const monthlyCounts: Record<string, number[]> = {};
+    courseAnalytics.forEach(c => {
+      monthlyCounts[c.courseId] = Array(12).fill(0);
+    });
+    registrationsSnapshot.docs.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
+      const data = d.data();
+      const cid = data.courseId;
+      const dt = data.registrationDate?.toDate();
+      if (cid && dt && monthlyCounts[cid]) {
+        monthlyCounts[cid][dt.getMonth()]++;
+      }
+    });
+    const courseMonthlyRegistrations: CourseMonthlyRegistrations[] =
+      Object.entries(monthlyCounts).map(([courseId, arr]) => ({
+        courseId, monthlyRegistrations: arr
+      }));
 
     return {
       totalUsers,
@@ -119,6 +139,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       activeUsers,
       alertsSentThisMonth,
       courseAnalytics,
+      courseMonthlyRegistrations,
       monthlyGrowth,
       weeklyData
     };
@@ -128,166 +149,95 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
   }
 };
 
-// Get course analytics with registration progress
 const getCourseAnalytics = async (
   coursesSnapshot: any,
   registrationsSnapshot: any
 ): Promise<CourseAnalytics[]> => {
-  const courseMap = new Map();
-  
-  // Initialize course data
-  coursesSnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
-    const data = doc.data();
-    courseMap.set(doc.id, {
-      courseId: doc.id,
+  const map = new Map<string, CourseAnalytics>();
+  coursesSnapshot.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
+    const data = d.data();
+    map.set(d.id, {
+      courseId: d.id,
       courseName: data.name || 'Unknown Course',
       totalRegistrations: 0,
       maxCapacity: data.maxCapacity || 0,
       fillRate: 0
     });
   });
-
-  // Count registrations per course
-  registrationsSnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
-    const courseId = doc.data().courseId;
-    if (courseMap.has(courseId)) {
-      const course = courseMap.get(courseId);
-      course.totalRegistrations++;
+  registrationsSnapshot.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
+    const cid = d.data().courseId;
+    if (map.has(cid)) {
+      map.get(cid)!.totalRegistrations++;
     }
   });
-
-  // Calculate fill rates
-  const courseAnalytics: CourseAnalytics[] = [];
-  courseMap.forEach((course) => {
-    if (course.maxCapacity > 0) {
-      course.fillRate = (course.totalRegistrations / course.maxCapacity) * 100;
+  const arr = Array.from(map.values());
+  arr.forEach(c => {
+    if (c.maxCapacity > 0) {
+      c.fillRate = (c.totalRegistrations / c.maxCapacity) * 100;
     }
-    courseAnalytics.push(course);
   });
-
-  // Sort by fill rate (most popular first)
-  courseAnalytics.sort((a, b) => b.fillRate - a.fillRate);
-
-  return courseAnalytics;
+  arr.sort((a, b) => b.fillRate - a.fillRate);
+  return arr;
 };
 
-// Calculate monthly growth trends
 const calculateMonthlyGrowth = async (
-  registrationsSnapshot: any,
-  usersSnapshot: any,
+  regSnap: any,
+  userSnap: any,
   startOfMonth: Date,
   startOfLastMonth: Date,
   endOfLastMonth: Date
 ): Promise<MonthlyGrowth> => {
-  // Count registrations this month
-  const registrationsThisMonth = registrationsSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
-    const registrationDate = doc.data().registrationDate?.toDate();
-    return registrationDate && registrationDate >= startOfMonth;
+  const regsThis = regSnap.docs.filter((d: any) => {
+    const dt = d.data().registrationDate?.toDate();
+    return dt && dt >= startOfMonth;
+  }).length;
+  const regsLast = regSnap.docs.filter((d: any) => {
+    const dt = d.data().registrationDate?.toDate();
+    return dt && dt >= startOfLastMonth && dt <= endOfLastMonth;
+  }).length;
+  const usersThis = userSnap.docs.filter((d: any) => {
+    const dt = d.data().createdAt?.toDate();
+    return dt && dt >= startOfMonth;
+  }).length;
+  const usersLast = userSnap.docs.filter((d: any) => {
+    const dt = d.data().createdAt?.toDate();
+    return dt && dt >= startOfLastMonth && dt <= endOfLastMonth;
   }).length;
 
-  // Count registrations last month
-  const registrationsLastMonth = registrationsSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
-    const registrationDate = doc.data().registrationDate?.toDate();
-    return registrationDate && 
-           registrationDate >= startOfLastMonth && 
-           registrationDate <= endOfLastMonth;
-  }).length;
-
-  // Count users this month
-  const usersThisMonth = usersSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
-    const createdAt = doc.data().createdAt?.toDate();
-    return createdAt && createdAt >= startOfMonth;
-  }).length;
-
-  // Count users last month
-  const usersLastMonth = usersSnapshot.docs.filter((doc: QueryDocumentSnapshot<DocumentData>) => {
-    const createdAt = doc.data().createdAt?.toDate();
-    return createdAt && 
-           createdAt >= startOfLastMonth && 
-           createdAt <= endOfLastMonth;
-  }).length;
-
-  // Calculate percentage changes
-  const registrationChange = registrationsLastMonth > 0 
-    ? ((registrationsThisMonth - registrationsLastMonth) / registrationsLastMonth) * 100 
-    : 0;
-
-  const userChange = usersLastMonth > 0 
-    ? ((usersThisMonth - usersLastMonth) / usersLastMonth) * 100 
-    : 0;
+  const pct = (curr: number, prev: number) =>
+    prev > 0 ? ((curr - prev) / prev) * 100 : 0;
 
   return {
     registrations: {
-      current: registrationsThisMonth,
-      previous: registrationsLastMonth,
-      percentageChange: registrationChange
+      current: regsThis,
+      previous: regsLast,
+      percentageChange: pct(regsThis, regsLast)
     },
     users: {
-      current: usersThisMonth,
-      previous: usersLastMonth,
-      percentageChange: userChange
+      current: usersThis,
+      previous: usersLast,
+      percentageChange: pct(usersThis, usersLast)
     }
   };
 };
 
-// Get top courses by registration count
-export const getTopCourses = async (limit: number = 5): Promise<CourseAnalytics[]> => {
-  try {
-    const stats = await getDashboardStats();
-    return stats.courseAnalytics.slice(0, limit);
-  } catch (error) {
-    console.error('Error fetching top courses:', error);
-    return [];
-  }
-};
-
-// Get average fill rate across all courses
-export const getAverageFillRate = async (): Promise<number> => {
-  try {
-    const stats = await getDashboardStats();
-    const coursesWithCapacity = stats.courseAnalytics.filter(c => c.maxCapacity > 0);
-    
-    if (coursesWithCapacity.length === 0) return 0;
-    
-    const totalFillRate = coursesWithCapacity.reduce((sum, course) => sum + course.fillRate, 0);
-    return totalFillRate / coursesWithCapacity.length;
-  } catch (error) {
-    console.error('Error calculating average fill rate:', error);
-    return 0;
-  }
-};
-
-// Calculate weekly registration data for the last 7 days
-const calculateWeeklyData = (registrationsSnapshot: any): WeeklyData[] => {
-  const weeklyData: WeeklyData[] = [];
-  const daysOfWeek = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
+const calculateWeeklyData = (regSnap: any): WeeklyData[] => {
+  const days = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
   const today = new Date();
-  
-  // Initialize data for last 7 days
+  const week: WeeklyData[] = [];
   for (let i = 6; i >= 0; i--) {
-    const date = new Date(today);
-    date.setDate(today.getDate() - i);
-    const dayIndex = date.getDay();
-    
-    weeklyData.push({
-      day: daysOfWeek[dayIndex],
-      registrations: 0
-    });
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    week.push({ day: days[d.getDay()], registrations: 0 });
   }
-  
-  // Count registrations per day
-  registrationsSnapshot.forEach((doc: QueryDocumentSnapshot<DocumentData>) => {
-    const registrationDate = doc.data().registrationDate?.toDate();
-    if (registrationDate) {
-      const daysDiff = Math.floor((today.getTime() - registrationDate.getTime()) / (1000 * 60 * 60 * 24));
-      if (daysDiff >= 0 && daysDiff < 7) {
-        const index = 6 - daysDiff;
-        if (weeklyData[index]) {
-          weeklyData[index].registrations++;
-        }
+  regSnap.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
+    const dt = d.data().registrationDate?.toDate();
+    if (dt) {
+      const diff = Math.floor((today.getTime() - dt.getTime()) / (1000*60*60*24));
+      if (diff >= 0 && diff < 7) {
+        week[6 - diff].registrations++;
       }
     }
   });
-  
-  return weeklyData;
+  return week;
 };

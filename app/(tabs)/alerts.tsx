@@ -21,6 +21,8 @@ import {
   doc,
   deleteDoc,
 } from "firebase/firestore";
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 
 interface AlertData {
   id: string;
@@ -34,6 +36,8 @@ interface AlertData {
 }
 
 export default function AlertsScreen() {
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
@@ -77,17 +81,12 @@ export default function AlertsScreen() {
     return () => unsub();
   }, []);
 
-  // Safe formatDate without instanceof
   const formatDate = (ts?: Timestamp | Date | null) => {
     if (!ts) return "";
     let dateObj: Date;
-    // Firestore Timestamp has a toDate() method
-    if (
-      typeof (ts as any)?.toDate === "function"
-    ) {
+    if (typeof (ts as any)?.toDate === "function") {
       dateObj = (ts as any).toDate();
     } else {
-      // assume it's a JS Date
       dateObj = ts as Date;
     }
     return dateObj.toLocaleDateString("he-IL", {
@@ -105,7 +104,7 @@ export default function AlertsScreen() {
   const handleDeleteAlert = async (alertId: string, title?: string) => {
     Alert.alert(
       "מחיקת התראה",
-      `האם אתה בטוח שברצונך למחוק את ההתראה${title ? ` "${title}"` : ""}?`,
+      `האם אתה בטוח שברצונך למחוק את ההתראה${title ? ` \"${title}\"` : ""}?`,
       [
         { text: "ביטול", style: "cancel" },
         {
@@ -159,13 +158,12 @@ export default function AlertsScreen() {
       {isAdmin && (
         <TouchableOpacity
           onPress={() => router.push("/alerts/create-alert")}
-          className="absolute top-4 right-4 z-10 w-14 h-14 bg-[#1A4782] rounded-full items-center justify-center shadow-lg z-10"
+          className="absolute top-4 right-4 z-10 w-14 h-14 bg-[#1A4782] rounded-full items-center justify-center shadow-lg"
         >
           <Text className="text-white text-2xl font-heeboBold">+</Text>
         </TouchableOpacity>
       )}
 
-      {/* Header */}
       <View className="pt-6 pb-2">
         <Text className="text-3xl font-heebo-bold text-center text-primary">
           עדכונים
@@ -205,8 +203,8 @@ export default function AlertsScreen() {
       {/* Alerts List */}
       <ScrollView
         contentContainerStyle={{
-          paddingBottom: isAdmin ? 120 : 20,
           paddingHorizontal: 16,
+          paddingBottom: insets.bottom + tabBarHeight + (isAdmin ? 120 : 20),
         }}
       >
         {filteredAlerts.length === 0 ? (
