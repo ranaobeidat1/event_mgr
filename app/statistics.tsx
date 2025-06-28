@@ -204,6 +204,7 @@ export default function Statistics() {
             icon="check-circle" 
             iconFamily="FontAwesome"
             color="#F89A1E"
+            
           />
           <StatCard 
             title="פוסטים שפורסמו" 

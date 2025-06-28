@@ -103,14 +103,14 @@ const PostItem = ({ item }: { item: Post }) => {
           style={{
             flexDirection: "row",
             width: SCREEN_WIDTH,
-            height: SCREEN_WIDTH / 2,
+            height: SCREEN_WIDTH ,
           }}
         >
           <Image
             source={{ uri: images[0] }}
             style={{
               width: SCREEN_WIDTH / 2,
-              height: SCREEN_WIDTH / 2,
+              height: SCREEN_WIDTH ,
               borderWidth: 1,
               borderColor: '#FFFFFF',
             }}
@@ -122,8 +122,8 @@ const PostItem = ({ item }: { item: Post }) => {
                 key={idx}
                 source={{ uri }}
                 style={{
-                  width: SCREEN_WIDTH / 2,
-                  height: SCREEN_WIDTH / 4,
+                  width: SCREEN_WIDTH ,
+                  height: SCREEN_WIDTH / 2,
                   borderWidth: 1,
                   borderColor: '#FFFFFF',
                 }}
