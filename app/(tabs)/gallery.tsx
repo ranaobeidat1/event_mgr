@@ -50,7 +50,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text className="mt-1 text-white text-right" numberOfLines={2}>
+          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
             {item.content}
           </Text>
         </View>
@@ -71,7 +71,7 @@ const PostItem = ({ item }: { item: Post }) => {
               source={{ uri }}
               style={{
                 width: cellSize,
-                height: cellSize, // 👈 Make image a perfect square
+                height: cellSize*2, // 👈 Make image a perfect square
                 borderWidth: 1,
                 borderColor: "#FFFFFF",
               }}
@@ -86,6 +86,9 @@ const PostItem = ({ item }: { item: Post }) => {
       >
         <Text className="text-xl font-heebo-bold text-white text-right">
           {item.title}
+        </Text>
+        <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
+          {item.content}
         </Text>
       </TouchableOpacity>
     </View>
@@ -136,7 +139,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text className="mt-1 text-white text-right" numberOfLines={2}>
+          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
             {item.content}
           </Text>
         </View>
@@ -187,7 +190,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text className="mt-1 text-white text-right" numberOfLines={2}>
+          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
             {item.content}
           </Text>
         </View>

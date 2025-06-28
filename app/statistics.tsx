@@ -42,10 +42,7 @@ export default function Statistics() {
           if (userData?.role === 'admin') {
             setIsAdmin(true);
             await fetchStatistics();
-          } else {
-            Alert.alert('אין הרשאה', 'עמוד זה זמין למנהלים בלבד');
-            router.back();
-          }
+          } 
         } else {
           router.replace('/login');
         }

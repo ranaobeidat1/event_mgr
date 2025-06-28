@@ -239,7 +239,7 @@ export default function PostsScreen() {
 </View>
 
 
-        <Text className="text-[#1A4782] text-xl font-bold text-center my-2">הקורסים שלנו</Text>
+        <Text className="text-[#1A4782] text-xl font-bold text-center my-2">החוגים שלנו</Text>
 
         {/* Circles for courses */}
         <View className="mx-4 mb-6">

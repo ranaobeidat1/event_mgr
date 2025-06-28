@@ -12,12 +12,15 @@ import {
 import { router } from "expo-router";
 import { auth, db } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
-import { collection, query, orderBy, onSnapshot, Timestamp, doc, deleteDoc } from "firebase/firestore";
-
-interface UserData {
-  id: string;
-  role?: string;
-}
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  Timestamp,
+  doc,
+  deleteDoc,
+} from "firebase/firestore";
 
 interface AlertData {
   id: string;
@@ -26,7 +29,7 @@ interface AlertData {
   createdBy: string;
   createdAt: Timestamp;
   notificationSent?: boolean;
-  targetType?: string;
+  targetType?: "all" | "course";  // assuming these two
   targetCourseId?: string;
 }
 
@@ -34,254 +37,268 @@ export default function AlertsScreen() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
-  
   const [loadingAlerts, setLoadingAlerts] = useState(true);
+
+  // for “הכל” / “כלליות” / “חוגים”
+  const [filter, setFilter] = useState<"all" | "general" | "course">("all");
   const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
   const [deletingAlerts, setDeletingAlerts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
+    // check admin
     const checkUserRole = async () => {
       setLoadingUser(true);
       const user = auth.currentUser;
       if (user) {
-        try {
-          const userData = (await getUser(user.uid)) as UserData | null;
-          if (userData?.role === "admin") {
-            setIsAdmin(true);
-          }
-        } catch (error) {
-          console.error("Error fetching user data for admin check:", error);
-        }
+        const userData = (await getUser(user.uid)) as { role?: string } | null;
+        if (userData?.role === "admin") setIsAdmin(true);
       }
       setLoadingUser(false);
     };
-    
     checkUserRole();
 
-    // Fetch Alerts
+    // load alerts
     setLoadingAlerts(true);
     const alertQuery = query(
       collection(db, "alerts"),
       orderBy("createdAt", "desc")
     );
-
-    const unsubscribe = onSnapshot(
+    const unsub = onSnapshot(
       alertQuery,
-      (snapshot) => {
-        const fetchedAlerts = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<AlertData, "id">),
-        }))
-        .filter(alert => 
-          (alert.message && alert.message.trim() !== '') || 
-          (alert.title && alert.title.trim() !== '')
-        );
-
-        setAlerts(fetchedAlerts);
+      (snap) => {
+        const fetched = snap.docs
+          .map((d) => ({ id: d.id, ...(d.data() as Omit<AlertData, "id">) }))
+          // filter out empties
+          .filter((a) => a.message.trim() || (a.title?.trim() ?? ""));
+        setAlerts(fetched);
         setLoadingAlerts(false);
       },
-      (error) => {
-        console.error("Error fetching alerts:", error);
+      (err) => {
+        console.error(err);
         setLoadingAlerts(false);
       }
     );
-
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  const formatDate = (timestamp: Timestamp | null | undefined) => {
-    if (!timestamp || typeof timestamp.toDate !== 'function') return '';
-    return timestamp.toDate().toLocaleDateString('he-IL', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
+  const formatDate = (ts: Timestamp) =>
+    ts
+      .toDate()
+      .toLocaleDateString("he-IL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
 
-  const toggleReadMore = (alertId: string) => {
-    setExpandedAlerts(prev => ({
-      ...prev,
-      [alertId]: !prev[alertId]
-    }));
-  };
+  const toggleReadMore = (id: string) =>
+    setExpandedAlerts((e) => ({ ...e, [id]: !e[id] }));
 
-    const handleDeleteAlert = async (alertId: string, alertTitle?: string) => {
+  const handleDeleteAlert = async (alertId: string, title?: string) => {
     Alert.alert(
       "מחיקת התראה",
-      `האם אתה בטוח שברצונך למחוק את ההתראה${alertTitle ? ` "${alertTitle}"` : ""}?`,
+      `האם אתה בטוח שברצונך למחוק את ההתראה${title ? ` "${title}"` : ""}?`,
       [
-        {
-          text: "ביטול",
-          style: "cancel"
-        },
+        { text: "ביטול", style: "cancel" },
         {
           text: "מחק",
           style: "destructive",
           onPress: async () => {
-            setDeletingAlerts(prev => ({ ...prev, [alertId]: true }));
+            setDeletingAlerts((d) => ({ ...d, [alertId]: true }));
             try {
               await deleteDoc(doc(db, "alerts", alertId));
-              console.log("Alert deleted successfully:", alertId);
               Alert.alert("הצלחה", "ההתראה נמחקה בהצלחה");
-            } catch (error) {
-              console.error("Error deleting alert:", error);
+            } catch {
               Alert.alert("שגיאה", "אירעה שגיאה במחיקת ההתראה");
             } finally {
-              setDeletingAlerts(prev => ({ ...prev, [alertId]: false }));
+              setDeletingAlerts((d) => ({ ...d, [alertId]: false }));
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
-  const handleEditAlert = (alert: AlertData) => {
+  const handleEditAlert = (alert: AlertData) =>
     router.push({
       pathname: "../alerts/edit-alert",
       params: {
         alertId: alert.id,
-        title: alert.title || "",
-        message: alert.message || "",
-        targetType: alert.targetType || "all",
-        targetCourseId: alert.targetCourseId || "",
-      }
+        title: alert.title ?? "",
+        message: alert.message,
+        targetType: alert.targetType ?? "all",
+        targetCourseId: alert.targetCourseId ?? "",
+      },
     });
-  };
 
   if (loadingUser || loadingAlerts) {
     return (
-      <SafeAreaView className="flex-1 items-center justify-center bg-white gap-4">
+      <SafeAreaView className="flex-1 bg-white items-center justify-center">
         <ActivityIndicator size="large" color="#1A4782" />
       </SafeAreaView>
     );
   }
 
+  // apply filter
+  const filteredAlerts = alerts.filter((a) => {
+    if (filter === "all") return true;
+    if (filter === "general") return a.targetType === "all";
+    if (filter === "course") return a.targetType === "course";
+    return true;
+  });
+
   return (
     <SafeAreaView className="flex-1 bg-white">
       {isAdmin && (
         <TouchableOpacity
-          className="absolute top-4 right-4 w-14 h-14 bg-yellow-400 rounded-full items-center justify-center shadow-lg z-10"
           onPress={() => router.push("/alerts/create-alert")}
+          className="absolute top-4 right-4 z-10 w-14 h-14 bg-yellow-400 rounded-full items-center justify-center shadow-lg"
         >
           <Text className="text-black text-2xl font-heeboBold">+</Text>
         </TouchableOpacity>
       )}
 
-      <View className="pt-6 pb-4">
-        <Text className="text-3xl font-heebo-bold text-center mt-5 text-primary">
+      {/* Header */}
+      <View className="pt-6 pb-2">
+        <Text className="text-3xl font-heebo-bold text-center text-primary">
           עדכונים
         </Text>
       </View>
 
-       <ScrollView 
-        className="flex-1 w-full"
-        contentContainerStyle={{ 
-          paddingBottom: isAdmin ? 120 : 20, 
-          paddingTop: 10 
+      {/* Segmented Control */}
+      <View className="flex-row-reverse justify-center items-center px-4 mb-4">
+        {[
+          { key: "all", label: "הכל" },
+          { key: "general", label: "כלליות" },
+          { key: "course", label: "חוגים" },
+        ].map((tab) => {
+          const sel = filter === tab.key;
+          return (
+            <TouchableOpacity
+              key={tab.key}
+              onPress={() => setFilter(tab.key as any)}
+              className={`mx-1 px-6 py-2 rounded-full border-2 ${
+                sel ? "bg-primary border-primary" : "bg-white border-primary border-opacity-50"
+              }`}
+            >
+              <Text
+                className={`text-lg font-heebo-medium ${
+                  sel ? "text-white" : "text-primary"
+                }`}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* List */}
+      <ScrollView
+        contentContainerStyle={{
+          paddingBottom: isAdmin ? 120 : 20,
+          paddingHorizontal: 16,
         }}
-       >
-        {alerts.length === 0 ? (
-          <View className="flex-1 justify-center items-center px-4">
-            <Text className="text-center text-gray-500 font-heebo-regular">
-              אין התראות עדיין
+      >
+        {filteredAlerts.length === 0 ? (
+          <View className="mt-10 items-center">
+            <Text className="text-gray-500 font-heebo-regular">
+              אין התראות להצגה
             </Text>
           </View>
         ) : (
-          <View className="px-4">
-          
-            {alerts.map((alert) => {
-              const isExpanded = expandedAlerts[alert.id];
-              const messageNeedsTruncation = alert.message && alert.message.length > 150;
-              const isDeleting = deletingAlerts[alert.id];
-
-              return (
-                <View key={alert.id} className="bg-primary p-5 rounded-3xl shadow-lg mb-5">
-                  {/* Admin Actions */}
-                  {isAdmin && (
-                    <View className="flex-row justify-end mb-3 gap-2">
-                      <TouchableOpacity
-                        className="bg-green-600 px-5 py-2 rounded-full"
-                        onPress={() => handleEditAlert(alert)}
-                        disabled={isDeleting}
-                      >
-                        <Text className="text-white text-xl font-heebo-medium">עריכה</Text>
-                      </TouchableOpacity>
-                      
-                      <TouchableOpacity
-                        className="bg-red-500 px-5 py-2 rounded-full flex-row items-center"
-                        onPress={() => handleDeleteAlert(alert.id, alert.title)}
-                        disabled={isDeleting}
-                      >
-                        {isDeleting ? (
-                          <ActivityIndicator size="small" color="white" />
-                        ) : (
-                          <Text className="text-white text-xl font-heebo-medium">מחק</Text>
-                        )}
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                  
-                  {/* Alert Title */}
-                  {alert.title && alert.title.trim() !== '' && (
-                    <Text className="text-3xl font-heebo-bold text-white mb-2 text-right leading-relaxed">
-                      {alert.title}
-                    </Text>
-                  )}
-
-                  {/* Alert Message */}
-                  {alert.message && alert.message.trim() !== '' && (
-                    <View className="mb-3">
-                      <Text
-                        className="text-2xl font-tahoma text-white text-right leading-relaxed"
-                        numberOfLines={isExpanded || !messageNeedsTruncation ? undefined : 3}
-                      >
-                        {alert.message}
+          filteredAlerts.map((alert) => {
+            const isExpanded = expandedAlerts[alert.id];
+            const needsTrunc = alert.message.length > 150;
+            const deleting = deletingAlerts[alert.id];
+            return (
+              <View
+                key={alert.id}
+                className="bg-primary rounded-3xl p-5 shadow-lg mb-6"
+              >
+                {isAdmin && (
+                  <View className="flex-row justify-end mb-3 space-x-2">
+                    <TouchableOpacity
+                      onPress={() => handleEditAlert(alert)}
+                      disabled={deleting}
+                      className="bg-green-600 px-4 py-2 rounded-full"
+                    >
+                      <Text className="text-white text-xl font-heebo-medium">
+                        עריכה
                       </Text>
-                      {messageNeedsTruncation && (
-                        <TouchableOpacity 
-                          onPress={() => toggleReadMore(alert.id)}
-                          className="mt-1 self-end"
-                        >
-                          <Text className="text-yellow-400 font-heebo-medium">
-                            {isExpanded ? 'הצג פחות' : 'קרא עוד'}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() =>
+                        handleDeleteAlert(alert.id, alert.title)
+                      }
+                      disabled={deleting}
+                      className="bg-red-500 px-4 py-2 rounded-full"
+                    >
+                      {deleting ? (
+                        <ActivityIndicator color="white" />
+                      ) : (
+                        <Text className="text-white text-xl font-heebo-medium">
+                          מחק
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {alert.title?.trim() && (
+                  <Text className="text-white text-3xl font-heebo-bold mb-2 text-right">
+                    {alert.title}
+                  </Text>
+                )}
+
+                <View className="mb-3">
+                  <Text
+                    className="text-white text-xl font-heebo-regular leading-relaxed text-right"
+                    numberOfLines={isExpanded ? undefined : 4}
+                  >
+                    {alert.message}
+                  </Text>
+
+                  {needsTrunc && (
+  <TouchableOpacity
+    onPress={() => toggleReadMore(alert.id)}
+    activeOpacity={0.7}
+    className="mt-4 w-full bg-white/20 py-3 rounded-lg items-center justify-center"
+  >
+    <Text className="text-base text-white font-heebo-bold">
+      {isExpanded ? "הצג פחות" : "קרא עוד"}
+    </Text>
+  </TouchableOpacity>
+)}
+                </View>
+
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-gray-300 text-2xl font-heebo-light">
+                    {formatDate(alert.createdAt)}
+                  </Text>
+                  {isAdmin && (
+                    <View className="flex-row space-x-2">
+                      {alert.notificationSent && (
+                        <View className="bg-green-600 px-2 py-1 rounded-full">
+                          <Text className="text-white text-xs font-heebo-medium">
+                            נשלח
                           </Text>
-                        </TouchableOpacity>
+                        </View>
+                      )}
+                      {alert.targetType && (
+                        <View className="bg-blue-500 px-2 py-1 rounded-full">
+                          <Text className="text-white text-xs font-heebo-medium">
+                            {alert.targetType === "all" ? "כולם" : "חוג ספציפי"}
+                          </Text>
+                        </View>
                       )}
                     </View>
                   )}
-
-                  {/* Alert Metadata */}
-                  <View className="flex-row justify-between items-center mt-3">
-                    <Text className="text-2xl text-gray-300 font-heebo-light text-left">
-                      {formatDate(alert.createdAt)}
-                    </Text>
-                    
-                    {/* Show notification status for admins */}
-                    {isAdmin && (
-                      <View className="flex-row items-center">
-                        {alert.notificationSent && (
-                          <View className="bg-green-600 px-2 py-1 rounded-full mr-2">
-                            <Text className="text-xs text-white font-heebo-medium">
-                              נשלח
-                            </Text>
-                          </View>
-                        )}
-                        {alert.targetType && (
-                          <View className="bg-blue-500 px-2 py-1 rounded-full">
-                            <Text className="text-xs text-white font-heebo-medium">
-                              {alert.targetType === 'all' ? 'כולם' : 'חוג ספציפי'}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
                 </View>
-              );
-            })}
-          </View>
+              </View>
+            );
+          })
         )}
       </ScrollView>
     </SafeAreaView>
