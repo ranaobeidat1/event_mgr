@@ -28,11 +28,15 @@ interface PostData {
 
 export default function EditPost() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [post, setPost] = useState<PostData>({ title: '', content: '', images: [] });
+  const [post, setPost] = useState<PostData>({
+    title: '',
+    content: '',
+    images: [],
+  });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  // fetch existing post
+  // Fetch the existing post
   useEffect(() => {
     (async () => {
       try {
@@ -40,53 +44,63 @@ export default function EditPost() {
         if (!snap.exists()) throw new Error('לא נמצא פוסט');
         setPost(snap.data() as PostData);
       } catch (e: any) {
-        Alert.alert('שגיאה', e.message, [{ text: 'אוקיי', onPress: () => router.back() }]);
+        Alert.alert('שגיאה', e.message, [
+          { text: 'אוקיי', onPress: () => router.back() },
+        ]);
       } finally {
         setLoading(false);
       }
     })();
   }, [id]);
 
-  // pick multiple images
+  // Pick new images
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('שגיאה', 'אין הרשאה לגישה לתמונות');
       return;
     }
-
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsMultipleSelection: true,
       quality: 0.7,
     });
     if (result.canceled) return;
-
-    const uris = result.assets.map(asset => asset.uri);
-    setPost(p => ({ ...p, images: [...(p.images || []), ...uris] }));
-  };
-
-  // remove image
-  const removeImage = (idx: number) => {
-    setPost(p => ({
+    const uris = result.assets.map((asset) => asset.uri);
+    setPost((p) => ({
       ...p,
-      images: p.images?.filter((_, i) => i !== idx) || [],
+      images: [...(p.images ?? []), ...uris],
     }));
   };
 
-  // save changes
+  // Remove one of the existing images
+  const removeImage = (idx: number) => {
+    setPost((p) => ({
+      ...p,
+      images: p.images?.filter((_, i) => i !== idx) ?? [],
+    }));
+  };
+
+  // Save changes: relaxed validation, everything else unchanged
   const save = async () => {
-    if (!post.title.trim() || !post.content.trim()) {
-      Alert.alert('שגיאה', 'כותרת ותוכן נדרשים');
+    // require at least one of title, content or images
+    if (
+      post.title.trim() === '' &&
+      post.content.trim() === '' &&
+      (!post.images || post.images.length === 0)
+    ) {
+      Alert.alert('שגיאה', 'אנא הוסף לפחות כותרת, תוכן או תמונה');
       return;
     }
+
     setSaving(true);
     try {
       await updateDoc(doc(db, 'posts', id), {
         title: post.title,
         content: post.content,
-        images: post.images || [],
+        images: post.images ?? [],
       });
+      // original in-save navigation left intact
       router.replace(`/posts/${id}`);
     } catch {
       Alert.alert('שגיאה', 'לא ניתן לשמור שינויים');
@@ -104,28 +118,29 @@ export default function EditPost() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
-          {/* Header */}
-          <View className="px-6 pt-5 pb-3">
-            <View className="flex-row justify-start mb-4">
-              <TouchableOpacity onPress={() => router.back()}>
-                <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
-              </TouchableOpacity>
-            </View>
-    
-          <View className="items-center">
-            <Text className="text-3xl font-bold text-primary">
-              עריכת פוסט
+    <SafeAreaView className="flex-1 bg-white" style={{ direction: 'rtl' }}>
+      {/* Header */}
+      <View className="px-6 pt-5 pb-3">
+        <View className="flex-row justify-start mb-4">
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text className="text-primary text-2xl font-heebo-medium">
+              חזרה
             </Text>
-          </View>
+          </TouchableOpacity>
         </View>
 
-        <ScrollView className="flex-1 px-6">
+        <View className="items-center">
+          <Text className="text-3xl font-bold text-primary">
+            עריכת פוסט
+          </Text>
+        </View>
+      </View>
 
+      <ScrollView className="flex-1 px-6">
         <Text className="mb-1 text-start text-xl">כותרת:</Text>
         <TextInput
           value={post.title}
-          onChangeText={t => setPost(p => ({ ...p, title: t }))}
+          onChangeText={(t) => setPost((p) => ({ ...p, title: t }))}
           placeholder="כותרת"
           className="border border-gray-300 rounded-lg p-2 mb-4 text-lg"
           textAlign="right"
@@ -134,7 +149,7 @@ export default function EditPost() {
         <Text className="mb-1 text-start text-xl">תוכן:</Text>
         <TextInput
           value={post.content}
-          onChangeText={t => setPost(p => ({ ...p, content: t }))}
+          onChangeText={(t) => setPost((p) => ({ ...p, content: t }))}
           placeholder="תוכן"
           multiline
           numberOfLines={4}
@@ -172,13 +187,12 @@ export default function EditPost() {
             {saving ? 'טוען…' : 'הוסף תמונות'}
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity
           onPress={async () => {
             await save();
             router.back();
             router.replace(`/posts/${id}`);
-
-            
           }}
           disabled={saving}
           className="bg-yellow-400 py-3 rounded-full items-center"
@@ -187,7 +201,7 @@ export default function EditPost() {
             {saving ? 'שומר…' : 'שמור שינויים'}
           </Text>
         </TouchableOpacity>
-          </ScrollView>
-        </SafeAreaView>
-      );
-    }
+      </ScrollView>
+    </SafeAreaView>
+  );
+}

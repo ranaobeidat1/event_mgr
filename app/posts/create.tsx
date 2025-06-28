@@ -37,14 +37,14 @@ const CreatePostScreen = () => {
       quality: 0.7,
     });
     if (!result.canceled) {
-      const uris = result.assets.map((asset: ImagePicker.ImagePickerAsset) => asset.uri);
-      setImages(prev => [...prev, ...uris]);
+      const uris = result.assets.map((asset) => asset.uri);
+      setImages((prev) => [...prev, ...uris]);
     }
   };
 
   // Remove selected image by index
   const removeImage = (idx: number) => {
-    setImages(prev => prev.filter((_, i) => i !== idx));
+    setImages((prev) => prev.filter((_, i) => i !== idx));
   };
 
   // Upload images to Firebase Storage and return URLs
@@ -54,7 +54,10 @@ const CreatePostScreen = () => {
       const blob = await response.blob();
       const user = auth.currentUser!;
       const timestamp = Date.now();
-      const imageRef = storageRef(storage, `posts/${user.uid}/${timestamp}_${idx}`);
+      const imageRef = storageRef(
+        storage,
+        `posts/${user.uid}/${timestamp}_${idx}`
+      );
       await uploadBytes(imageRef, blob);
       const downloadUrl = await getDownloadURL(imageRef);
       return downloadUrl;
@@ -64,28 +67,40 @@ const CreatePostScreen = () => {
 
   // Submit new post
   const handleSubmit = async () => {
-    if (!title.trim() || !content.trim()) {
-      Alert.alert('שגיאה', 'יש למלא כותרת ותוכן');
+    // require at least one of title, content or images
+    if (
+      title.trim() === '' &&
+      content.trim() === '' &&
+      images.length === 0
+    ) {
+      Alert.alert('שגיאה', 'אנא הוסף לפחות כותרת, תוכן או תמונה');
       return;
     }
+
     setSaving(true);
     try {
       const user = auth.currentUser;
       if (!user) throw new Error('משתמש לא מזוהה');
 
-      const imageUrls = images.length > 0 ? await uploadImagesAndGetUrls(images) : [];
+      // upload images if any
+      const imageUrls = images.length
+        ? await uploadImagesAndGetUrls(images)
+        : [];
 
+      // add to Firestore
       await addDoc(collection(db, 'posts'), {
-        title,
-        content,
+        title: title.trim() || null,      // you can store null if empty
+        content: content.trim() || null,  // same here
         images: imageUrls,
         authorId: user.uid,
         createdAt: serverTimestamp(),
       });
 
       Alert.alert('הצלחה', 'הפוסט נוצר בהצלחה', [
-        { text: 'אישור', onPress: () => router.replace('/(tabs)') }
+        { text: 'אישור', onPress: () => router.replace('/(tabs)') },
       ]);
+
+      // reset form
       setTitle('');
       setContent('');
       setImages([]);
@@ -104,7 +119,7 @@ const CreatePostScreen = () => {
       </Text>
 
       <TextInput
-        placeholder="כותרת"
+        placeholder="כותרת "
         value={title}
         onChangeText={setTitle}
         className="border border-gray-300 rounded p-3 mb-4"

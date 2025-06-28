@@ -18,8 +18,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 interface Post {
   id: string;
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
   images?: string[];
   createdAt?: any;
 }

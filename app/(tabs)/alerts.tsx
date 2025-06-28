@@ -27,9 +27,9 @@ interface AlertData {
   title?: string;
   message: string;
   createdBy: string;
-  createdAt: Timestamp;
+  createdAt?: Timestamp | Date | null;
   notificationSent?: boolean;
-  targetType?: "all" | "course";  // assuming these two
+  targetType?: "all" | "course";
   targetCourseId?: string;
 }
 
@@ -39,13 +39,11 @@ export default function AlertsScreen() {
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
 
-  // for “הכל” / “כלליות” / “חוגים”
   const [filter, setFilter] = useState<"all" | "general" | "course">("all");
   const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
   const [deletingAlerts, setDeletingAlerts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
-    // check admin
     const checkUserRole = async () => {
       setLoadingUser(true);
       const user = auth.currentUser;
@@ -57,7 +55,6 @@ export default function AlertsScreen() {
     };
     checkUserRole();
 
-    // load alerts
     setLoadingAlerts(true);
     const alertQuery = query(
       collection(db, "alerts"),
@@ -68,7 +65,6 @@ export default function AlertsScreen() {
       (snap) => {
         const fetched = snap.docs
           .map((d) => ({ id: d.id, ...(d.data() as Omit<AlertData, "id">) }))
-          // filter out empties
           .filter((a) => a.message.trim() || (a.title?.trim() ?? ""));
         setAlerts(fetched);
         setLoadingAlerts(false);
@@ -81,16 +77,27 @@ export default function AlertsScreen() {
     return () => unsub();
   }, []);
 
-  const formatDate = (ts: Timestamp) =>
-    ts
-      .toDate()
-      .toLocaleDateString("he-IL", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+  // Safe formatDate without instanceof
+  const formatDate = (ts?: Timestamp | Date | null) => {
+    if (!ts) return "";
+    let dateObj: Date;
+    // Firestore Timestamp has a toDate() method
+    if (
+      typeof (ts as any)?.toDate === "function"
+    ) {
+      dateObj = (ts as any).toDate();
+    } else {
+      // assume it's a JS Date
+      dateObj = ts as Date;
+    }
+    return dateObj.toLocaleDateString("he-IL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
 
   const toggleReadMore = (id: string) =>
     setExpandedAlerts((e) => ({ ...e, [id]: !e[id] }));
@@ -140,7 +147,6 @@ export default function AlertsScreen() {
     );
   }
 
-  // apply filter
   const filteredAlerts = alerts.filter((a) => {
     if (filter === "all") return true;
     if (filter === "general") return a.targetType === "all";
@@ -179,7 +185,9 @@ export default function AlertsScreen() {
               key={tab.key}
               onPress={() => setFilter(tab.key as any)}
               className={`mx-1 px-6 py-2 rounded-full border-2 ${
-                sel ? "bg-primary border-primary" : "bg-white border-primary border-opacity-50"
+                sel
+                  ? "bg-primary border-primary"
+                  : "bg-white border-primary border-opacity-50"
               }`}
             >
               <Text
@@ -194,7 +202,7 @@ export default function AlertsScreen() {
         })}
       </View>
 
-      {/* List */}
+      {/* Alerts List */}
       <ScrollView
         contentContainerStyle={{
           paddingBottom: isAdmin ? 120 : 20,
@@ -212,6 +220,7 @@ export default function AlertsScreen() {
             const isExpanded = expandedAlerts[alert.id];
             const needsTrunc = alert.message.length > 150;
             const deleting = deletingAlerts[alert.id];
+
             return (
               <View
                 key={alert.id}
@@ -229,9 +238,7 @@ export default function AlertsScreen() {
                       </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
-                      onPress={() =>
-                        handleDeleteAlert(alert.id, alert.title)
-                      }
+                      onPress={() => handleDeleteAlert(alert.id, alert.title)}
                       disabled={deleting}
                       className="bg-red-500 px-4 py-2 rounded-full"
                     >
@@ -259,23 +266,22 @@ export default function AlertsScreen() {
                   >
                     {alert.message}
                   </Text>
-
                   {needsTrunc && (
-  <TouchableOpacity
-    onPress={() => toggleReadMore(alert.id)}
-    activeOpacity={0.7}
-    className="mt-4 w-full bg-white/20 py-3 rounded-lg items-center justify-center"
-  >
-    <Text className="text-base text-white font-heebo-bold">
-      {isExpanded ? "הצג פחות" : "קרא עוד"}
-    </Text>
-  </TouchableOpacity>
-)}
+                    <TouchableOpacity
+                      onPress={() => toggleReadMore(alert.id)}
+                      activeOpacity={0.7}
+                      className="mt-4 w-full bg-white/20 py-3 rounded-lg items-center justify-center"
+                    >
+                      <Text className="text-base text-white font-heebo-bold">
+                        {isExpanded ? "הצג פחות" : "קרא עוד"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
                 </View>
 
                 <View className="flex-row justify-between items-center">
                   <Text className="text-gray-300 text-2xl font-heebo-light">
-                    {formatDate(alert.createdAt)}
+                    {alert.createdAt ? formatDate(alert.createdAt) : ""}
                   </Text>
                   {isAdmin && (
                     <View className="flex-row space-x-2">
@@ -289,7 +295,9 @@ export default function AlertsScreen() {
                       {alert.targetType && (
                         <View className="bg-blue-500 px-2 py-1 rounded-full">
                           <Text className="text-white text-xs font-heebo-medium">
-                            {alert.targetType === "all" ? "כולם" : "חוג ספציפי"}
+                            {alert.targetType === "all"
+                              ? "כולם"
+                              : "חוג ספציפי"}
                           </Text>
                         </View>
                       )}
