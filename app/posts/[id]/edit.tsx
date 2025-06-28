@@ -181,9 +181,9 @@ export default function EditPost() {
         <TouchableOpacity
           onPress={pickImages}
           disabled={saving}
-          className="bg-green-600 py-3 rounded-full items-center mb-6"
+          className="bg-[#1A4782] py-3 rounded-full items-center mb-6"
         >
-          <Text className="text-black text-xl font-heebo-bold">
+          <Text className="text-white text-xl font-heebo-bold">
             {saving ? 'טוען…' : 'הוסף תמונות'}
           </Text>
         </TouchableOpacity>
@@ -195,9 +195,9 @@ export default function EditPost() {
             router.replace(`/posts/${id}`);
           }}
           disabled={saving}
-          className="bg-yellow-400 py-3 rounded-full items-center"
+          className="bg-[#1A4782] py-3 rounded-full items-center"
         >
-          <Text className="text-black text-xl font-heebo-bold">
+          <Text className="text-white text-xl font-heebo-bold">
             {saving ? 'שומר…' : 'שמור שינויים'}
           </Text>
         </TouchableOpacity>
