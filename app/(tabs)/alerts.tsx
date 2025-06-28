@@ -153,9 +153,9 @@ export default function AlertsScreen() {
       {isAdmin && (
         <TouchableOpacity
           onPress={() => router.push("/alerts/create-alert")}
-          className="absolute top-4 right-4 z-10 w-14 h-14 bg-yellow-400 rounded-full items-center justify-center shadow-lg"
+          className="absolute top-4 right-4 z-10 w-14 h-14 bg-[#1A4782] rounded-full items-center justify-center shadow-lg z-10"
         >
-          <Text className="text-black text-2xl font-heeboBold">+</Text>
+          <Text className="text-white text-2xl font-heeboBold">+</Text>
         </TouchableOpacity>
       )}
 
