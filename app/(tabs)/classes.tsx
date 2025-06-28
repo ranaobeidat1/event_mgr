@@ -100,16 +100,27 @@ export default function Index() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }}>
-        <Text className="text-3xl font-heebo-bold text-center mt-5 text-primary">חוגים</Text>
-
+      
         {isAdmin && (
           <Link href="/add-class" asChild>
-            <TouchableOpacity className="bg-secondary rounded-full px-6 py-4 shadow-md mt-6 mx-auto">
-              <Text className="text-white font-heebo-bold text-lg text-center">הוסף חוג חדש</Text>
+            <TouchableOpacity className="absolute top-4 right-4 w-14 h-14 bg-[#1A4782] rounded-full items-center justify-center shadow-lg z-10">
+              <Text className="text-white text-2xl font-heeboBold">+</Text>
             </TouchableOpacity>
           </Link>
         )}
+
+        <View className="pt-6 pb-2">
+                <Text className="text-3xl font-heebo-bold text-center text-primary">
+                  חוגים
+                </Text>
+              </View>
+        
+        <ScrollView
+                contentContainerStyle={{
+                  paddingBottom: isAdmin ? 120 : 20,
+                  paddingHorizontal: 16,
+                }}
+            >
 
         {/* Search Input */}
         <View className="mt-6 mb-4 relative">
