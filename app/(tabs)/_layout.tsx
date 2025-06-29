@@ -134,21 +134,14 @@ export default function TabsLayout() {
   const handleRestrictedFeature = () => {
     if (isGuest) {
       Alert.alert(
-        "מגבלת גישה",
-        "הגישה למאפיין זה מוגבלת לחשבונות רשומים בלבד. האם ברצונך להירשם?",
-        [
-          {
-            text: "הירשם",
-            onPress: () => {
-              setIsGuest(false);
-              router.replace("/register");
-            },
-          },
-          {
-            text: "ביטול",
-            style: "cancel",
-          },
-        ]
+      "מגבלת גישה",
+      "הגישה למאפיין זה מוגבלת לחשבונות רשומים בלבד.",
+      [
+        {
+        text: "אישור",
+        style: "cancel",
+        },
+      ]
       );
       return true;
     }

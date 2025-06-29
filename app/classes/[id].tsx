@@ -170,23 +170,15 @@ const ClassDetails = () => {
     }
     
     if (isGuest) {
-      // Prompt guest to register
       Alert.alert(
-        "דרושה הרשמה",
-        "עליך להירשם כדי להצטרף לחוג",
-        [
-          {
-            text: "הירשם",
-            onPress: () => {
-              setIsGuest(false);
-              router.replace("/register");
-            }
-          },
-          {
-            text: "ביטול",
-            style: "cancel"
-          }
-        ]
+      "דרושה הרשמה",
+      "עליך להירשם כדי להצטרף לחוג",
+      [
+        {
+        text: "אישור",
+        style: "cancel"
+        }
+      ]
       );
       return;
     }
