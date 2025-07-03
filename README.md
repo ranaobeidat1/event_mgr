@@ -259,7 +259,7 @@ Key database operations include:
 
 - **User Management**: Create, read, update user profiles
 - **Course Management**: CRUD operations for courses
-- **Registration Management**: Handle student enrollments
+- **leaving details Management**: Handle users leaving details
 - **Content Management**: Manage gallery posts and media
 
 ### Push Notifications
