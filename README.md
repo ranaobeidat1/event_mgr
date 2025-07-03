@@ -22,7 +22,7 @@ event_mgr is a modern, cross-platform application that digitizes course manageme
 
 ### Key Capabilities
 
-- **Multi-role Access Control**: Student, administrator, and guest access levels
+- **Multi-role Access Control**: regular users, administrator, and guest access levels
 - **Real-time Notifications**: Push notifications with targeted delivery
 - **Content Management**: Rich media gallery with cloud storage
 - **Analytics Dashboard**: Comprehensive reporting and statistics
@@ -33,9 +33,9 @@ event_mgr is a modern, cross-platform application that digitizes course manageme
 
 ### regular user Experience
 - **Course Discovery**: Browse and search available courses
-- **Digital Registration**: Streamlined enrollment process with form validation
-- **Content Gallery**: Access course-related media and updates
-- **Push Notifications**: Receive important announcements and deadlines
+- **Leaving Details**: leaving details process with form 
+- **Content Gallery**: Access  media and updates
+- **Push Notifications**: Receive important announcements 
 - **Profile Management**: Update personal information and preferences
 
 ### Administrator Tools
@@ -279,7 +279,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Project Information**
 - **Institution**: Azrieli College of Engineering
-- **Course**: 
+- **Course**: תכנון וניהול פרויקטי
 - **Academic Year**: 2024-2025
 - **Status**: Production Ready
 
