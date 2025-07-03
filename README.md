@@ -303,6 +303,12 @@ SOFTWARE.
 - **Academic Year**: 2024-2025
 - **Status**: Production Ready
 
+**Development Team**
+- Yousef Salman
+- Shahd Nammari
+- Rana Obeidat
+- Salah Shamasneh
+
 **Acknowledgments**
 - Firebase team for excellent backend services
 - Expo team for simplifying React Native development
