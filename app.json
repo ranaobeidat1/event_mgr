@@ -23,8 +23,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+          "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
+        "backgroundImage": "./assets/images/adaptive-icon-background.png"
       },
       "package": "com.sahlab.app",
       "googleServicesFile": "./google-services.json"
@@ -54,6 +54,15 @@
           "defaultChannel": "default",
           "backgroundColor": "#1A4782",
           "useNextNotificationsApi": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "compileSdkVersion": 36,
+            "targetSdkVersion": 35
+          }
         }
       ]
     ],

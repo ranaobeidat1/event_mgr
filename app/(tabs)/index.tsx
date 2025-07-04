@@ -159,7 +159,7 @@ export default function PostsScreen() {
     try {
       await deleteDoc(doc(db, 'circles', id));
     } catch {
-      Alert.alert('שגיאה במחיקת עיגול');
+      Alert.alert('שגיאה במחיקת  עיגול');
     }
   };
 
