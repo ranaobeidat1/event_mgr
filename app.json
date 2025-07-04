@@ -23,11 +23,17 @@
     },
     "android": {
       "adaptiveIcon": {
-          "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
+        "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
         "backgroundImage": "./assets/images/adaptive-icon-background.png"
       },
       "package": "com.sahlab.app",
       "googleServicesFile": "./google-services.json"
+    },
+    "androidStatusBar": {
+      "barStyle": "dark-content",
+      "backgroundColor": "#ffffff",
+      "translucent": true,
+      "hidden": false
     },
     "web": {
       "bundler": "metro",
