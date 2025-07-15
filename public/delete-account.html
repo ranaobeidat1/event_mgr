@@ -1,18 +1,96 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Delete Your MyApp Account</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Account Deletion for סחלב App</title>
+    <style>
+        body { 
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            display: grid; 
+            place-content: center; 
+            text-align: center; 
+            min-height: 100vh; 
+            background-color: #f8f9fa;
+            color: #333;
+            padding: 1rem;
+        }
+        .container { 
+            max-width: 600px; 
+            padding: 2rem; 
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+        }
+        .developer-name {
+            font-size: 1rem;
+            color: #6c757d;
+            margin-bottom: 2rem;
+        }
+        p {
+            line-height: 1.6;
+            color: #495057;
+        }
+        .button { 
+            display: inline-block;
+            background-color: #e53e3e; 
+            color: white; 
+            padding: 1rem 2rem; 
+            margin-top: 1rem;
+            border-radius: 8px; 
+            text-decoration: none; 
+            font-weight: bold; 
+            transition: background-color 0.2s;
+        }
+        .button:hover {
+            background-color: #c53030;
+        }
+        .data-section {
+            text-align: left;
+            margin-top: 2.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #dee2e6;
+        }
+        .data-section h2 {
+            text-align: center;
+            font-size: 1.25rem;
+            margin-bottom: 1rem;
+        }
+        .data-section ul {
+            padding-left: 20px;
+            list-style-position: inside;
+        }
+        .data-section li {
+            margin-bottom: 0.5rem;
+        }
+    </style>
 </head>
 <body>
-  <h1>Request Account Deletion</h1>
-  <p>To delete your MyApp account and all associated data, please send a request below.</p>
-  <form action="mailto:yousefsalman030@gmail.com" method="post" enctype="text/plain">
-    <label for="email">Your registered email:</label><br/>
-    <input type="email" id="email" name="Email" required><br/><br/>
-    <button type="submit">Submit Deletion Request</button>
-  </form>
-  <p>Data deleted includes your profile, contacts, and user-generated content. We may retain anonymized logs for 90 days for security and diagnostics.</p>
+    <div class="container">
+        <h1>Account Deletion for סחלב App</h1>
+        <p class="developer-name">Developed by <strong>Yousef Salman</strong></p>
+
+        <h2>Steps to Request Account Deletion</h2>
+        <p>To delete your account, please send a deletion request from the email address associated with your סחלב account. This helps us securely verify that you are the owner of the account.</p>
+        
+        <a href="mailto:yousefsalman030@gmail.com?subject=Account Deletion Request for סחלב App" class="button">
+            Request Deletion via Email
+        </a>
+
+        <div class="data-section">
+            <h2>Data Deletion Information</h2>
+            <p>Upon receiving and verifying your deletion request, the following data associated with your account will be permanently deleted:</p>
+            <ul>
+                <li>Your user profile information (e.g., username, email address)</li>
+                <li>App settings and preferences</li>
+                <li>Login history and activity logs</li>
+            </ul>
+            <p><strong>Retention Period:</strong> Your data will be permanently deleted from our systems within 14 days of your request. Anonymized data that cannot be linked back to you may be retained for analytical purposes.</p>
+        </div>
+    </div>
 </body>
 </html>
