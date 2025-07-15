@@ -9,6 +9,7 @@ import {
   Platform,
   ScrollView,
   Dimensions,
+  StyleSheet, // Import StyleSheet
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
@@ -16,13 +17,14 @@ import { auth } from '../FirebaseConfig';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useAuth } from './_layout';
 import { registerForPushNotificationsAsync } from './utils/notificationService';
+
 export default function LoginScreen() {
   const { setIsGuest } = useAuth();
-  const [email, setEmail]       = useState('');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError]       = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const logoAnim   = useRef(new Animated.Value(0)).current;
+  const logoAnim = useRef(new Animated.Value(0)).current;
   const fieldAnims = [
     useRef(new Animated.Value(0)).current, // email
     useRef(new Animated.Value(0)).current, // password
@@ -56,28 +58,19 @@ export default function LoginScreen() {
     ]).start();
   }, []);
 
-  // make it async so we can await
-const handleLogin = async () => {
-  setError(null);
+  const handleLogin = async () => {
+    setError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await registerForPushNotificationsAsync();
+      router.replace('/(tabs)');
+    } catch (err: any) {
+      setError(err.message);
+    }
+  };
 
-  try {
-    // 1. sign-in (same as before)
-    await signInWithEmailAndPassword(auth, email.trim(), password);
-
-    // 2. NEW 👉 get + save Expo push-token for this user
-    await registerForPushNotificationsAsync();
-
-    // 3. then navigate
-    router.replace('/(tabs)');
-  } catch (err: any) {
-    setError(err.message);
-  }
-};
-  
   const handleGuestLogin = () => {
-    // Enable guest mode
     setIsGuest(true);
-    // Navigate to tabs
     router.replace('/(tabs)');
   };
 
@@ -85,10 +78,10 @@ const handleLogin = async () => {
     anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] });
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
+    <SafeAreaView style={styles.flexContainer}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        className="flex-1"
+        style={styles.flexContainer}
       >
         <ScrollView
           contentContainerStyle={{
@@ -109,7 +102,7 @@ const handleLogin = async () => {
             resizeMode="contain"
           />
 
-          <View className="w-full">
+          <View style={styles.fullWidth}>
             <Animated.View
               style={{
                 opacity: fieldAnims[0],
@@ -162,26 +155,30 @@ const handleLogin = async () => {
                   התחברות
                 </Text>
               </TouchableOpacity>
-              <View className="flex-row justify-center">
+
+              {/* START: FIX FOR LINKS */}
+              <View style={styles.linkContainer}>
                 <Link href="/register" asChild>
                   <TouchableOpacity>
-                    <Text className="text-primary font-Heebo-Bold text-lg">
+                    <Text style={styles.registerLink}>
                       להרשמה
                     </Text>
                   </TouchableOpacity>
                 </Link>
               </View>
-              <View className="flex-row justify-center mt-2">
+              <View style={[styles.linkContainer, { marginTop: 8 }]}>
                 <Link href="/forgot-password" asChild>
                   <TouchableOpacity>
-                    <Text className="text-primary font-Heebo-Regular text-lg underline">
+                    <Text style={styles.forgotPasswordLink}>
                       שכחת סיסמה?
                     </Text>
                   </TouchableOpacity>
                 </Link>
               </View>
+              {/* END: FIX FOR LINKS */}
+
             </Animated.View>
-            
+
             {/* Guest Mode Button */}
             <Animated.View
               style={{
@@ -205,3 +202,31 @@ const handleLogin = async () => {
     </SafeAreaView>
   );
 }
+
+// Define styles using StyleSheet for better compatibility
+const styles = StyleSheet.create({
+  flexContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  fullWidth: {
+    width: '100%',
+  },
+  linkContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+  },
+  // Style for the "Register" link
+  registerLink: {
+    color: '#1A4782', // Assuming a primary color, adjust if needed
+    fontFamily: 'Heebo-Bold', // Make sure this font is loaded in your project
+    fontSize: 18,
+  },
+  // Style for the "Forgot Password" link
+  forgotPasswordLink: {
+    color: '#1A4782', // Assuming a primary color, adjust if needed
+    fontFamily: 'Heebo-Regular', // Make sure this font is loaded
+    fontSize: 18,
+    textDecorationLine: 'underline',
+  },
+});
