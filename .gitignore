@@ -48,3 +48,10 @@ expo-env.d.ts
 # @end expo-clifirebase-service-account.json
 ./firebase-service-account.json
 firebase-service-account.json
+
+# Firebase Android config
+google-services.json
+
+# Firebase service account keys
+firebase-service-account.json
+firebase-service-account-*.json
