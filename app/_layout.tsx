@@ -9,6 +9,7 @@ import { Stack, SplashScreen } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth, db } from '../FirebaseConfig';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   View,
   ActivityIndicator,
@@ -123,6 +124,7 @@ export default function RootLayout() {
   //  Render navigation
   // ────────────────────────────────────────────────────────────
   return (
+    <SafeAreaProvider>
     <AuthContext.Provider value={{ user, isGuest, setIsGuest }}>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />
@@ -155,5 +157,6 @@ export default function RootLayout() {
         <Stack.Screen name="statistics" options={{ headerShown: false }} />
       </Stack>
     </AuthContext.Provider>
+    </SafeAreaProvider>
   );
 }

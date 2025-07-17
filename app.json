@@ -30,10 +30,10 @@
       "googleServicesFile": "./google-services.json"
     },
     "androidStatusBar": {
-      "barStyle": "dark-content",
-      "backgroundColor": "#ffffff",
-      "translucent": true,
-      "hidden": false
+       "barStyle": "light-content",      
+      "backgroundColor": "#1A4782",    
+      "translucent": false,            
+      "hidden": false                    
     },
     "web": {
       "bundler": "metro",

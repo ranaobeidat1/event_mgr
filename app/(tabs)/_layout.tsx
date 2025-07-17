@@ -1,6 +1,5 @@
 import React, { useEffect, useState } from "react";
 import {
-  SafeAreaView,
   View,
   Text,
   Image,
@@ -10,6 +9,7 @@ import {
   I18nManager,
   Alert,
 } from "react-native";
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Tabs, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { useAuth } from "../_layout";
@@ -149,7 +149,9 @@ export default function TabsLayout() {
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView 
+    style={{ flex: 1 }}
+    edges={['top', 'bottom']} >
       {/* Header */}
       <View
         style={{
