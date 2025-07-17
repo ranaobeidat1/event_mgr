@@ -18,7 +18,11 @@ import {
 import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'; // Import deleteObject
 import { db } from '../../../FirebaseConfig';
+
+// Initialize Firebase Storage
+const storage = getStorage();
 
 interface PostData {
   title: string;
@@ -33,16 +37,25 @@ export default function EditPost() {
     content: '',
     images: [],
   });
+  
+  // State to track images marked for deletion
+  const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
+  
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Fetch the existing post
   useEffect(() => {
     (async () => {
+      if (!id) return;
       try {
-        const snap = await getDoc(doc(db, 'posts', id));
-        if (!snap.exists()) throw new Error('לא נמצא פוסט');
-        setPost(snap.data() as PostData);
+        const docRef = doc(db, 'posts', id);
+        const docSnap = await getDoc(docRef);
+        if (!docSnap.exists()) {
+          throw new Error('לא נמצא פוסט');
+        }
+        setPost(docSnap.data() as PostData);
       } catch (e: any) {
         Alert.alert('שגיאה', e.message, [
           { text: 'אוקיי', onPress: () => router.back() },
@@ -53,7 +66,7 @@ export default function EditPost() {
     })();
   }, [id]);
 
-  // Pick new images
+  // Pick new images from the library
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -65,25 +78,55 @@ export default function EditPost() {
       allowsMultipleSelection: true,
       quality: 0.7,
     });
-    if (result.canceled) return;
-    const uris = result.assets.map((asset) => asset.uri);
-    setPost((p) => ({
-      ...p,
-      images: [...(p.images ?? []), ...uris],
-    }));
+
+    if (!result.canceled) {
+      const uris = result.assets.map((asset) => asset.uri);
+      setPost((p) => ({
+        ...p,
+        images: [...(p.images ?? []), ...uris],
+      }));
+    }
   };
 
-  // Remove one of the existing images
-  const removeImage = (idx: number) => {
+  // Remove an image and mark it for deletion if it's from storage
+  const removeImage = (index: number) => {
+    const allImages = post.images ?? [];
+    const imageToRemove = allImages[index];
+
+    // If the image has a firebase URL, add it to our deletion queue
+    if (imageToRemove && imageToRemove.startsWith('https://firebasestorage')) {
+      setImagesToDelete(prev => [...prev, imageToRemove]);
+    }
+    
+    // Then, remove it from the visible list in the UI
     setPost((p) => ({
       ...p,
-      images: p.images?.filter((_, i) => i !== idx) ?? [],
+      images: allImages.filter((_, i) => i !== index),
     }));
   };
+  
+  // Helper function to upload a single image
+  const uploadImage = async (uri: string) => {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    const storageRef = ref(storage, `posts/${id}/${Date.now()}`);
+    await uploadBytes(storageRef, blob);
+    return await getDownloadURL(storageRef);
+  };
 
-  // Save changes: relaxed validation, everything else unchanged
-  const save = async () => {
-    // require at least one of title, content or images
+  // Helper function to delete an image from Firebase Storage
+  const deleteImageFromStorage = async (imageUrl: string) => {
+    try {
+      const imageRef = ref(storage, imageUrl);
+      await deleteObject(imageRef);
+    } catch (error) {
+      console.error("Failed to delete image from storage:", error);
+      // Don't block the user, just log the error
+    }
+  };
+
+  // Save changes to Firebase
+  const handleSave = async () => {
     if (
       post.title.trim() === '' &&
       post.content.trim() === '' &&
@@ -93,19 +136,40 @@ export default function EditPost() {
       return;
     }
 
-    setSaving(true);
+    setIsUploading(true);
+    
     try {
-      await updateDoc(doc(db, 'posts', id), {
+      const newImageUris = post.images?.filter(uri => uri.startsWith('file://')) ?? [];
+      const existingImageUrls = post.images?.filter(uri => !uri.startsWith('file://')) ?? [];
+      
+      const newImageUrls = await Promise.all(newImageUris.map(uploadImage));
+      
+      setIsUploading(false);
+      setIsSaving(true);
+      
+      const finalImageUrls = [...existingImageUrls, ...newImageUrls];
+
+      const postRef = doc(db, 'posts', id);
+      await updateDoc(postRef, {
         title: post.title,
         content: post.content,
-        images: post.images ?? [],
+        images: finalImageUrls,
       });
-      // original in-save navigation left intact
+
+      // After successfully updating the post, delete the removed images from storage
+      if (imagesToDelete.length > 0) {
+        await Promise.all(imagesToDelete.map(url => deleteImageFromStorage(url)));
+      }
+
+      Alert.alert('הצלחה', 'השינויים נשמרו בהצלחה');
       router.replace(`/posts/${id}`);
-    } catch {
-      Alert.alert('שגיאה', 'לא ניתן לשמור שינויים');
+
+    } catch (error) {
+      console.error("Error saving post: ", error);
+      Alert.alert('שגיאה', 'לא ניתן היה לשמור את השינויים.');
     } finally {
-      setSaving(false);
+      setIsUploading(false);
+      setIsSaving(false);
     }
   };
 
@@ -116,13 +180,15 @@ export default function EditPost() {
       </SafeAreaView>
     );
   }
+  
+  const isBusy = isUploading || isSaving;
 
   return (
     <SafeAreaView className="flex-1 bg-white" style={{ direction: 'rtl' }}>
       {/* Header */}
       <View className="px-6 pt-5 pb-3">
         <View className="flex-row justify-start mb-4">
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity onPress={() => router.back()} disabled={isBusy}>
             <Text className="text-primary text-2xl font-heebo-medium">
               חזרה
             </Text>
@@ -158,7 +224,7 @@ export default function EditPost() {
         />
 
         <Text className="mb-2 text-start text-xl">תמונות:</Text>
-        {post.images?.length ? (
+        {post.images && post.images.length > 0 && (
           <ScrollView horizontal className="mb-4 space-x-2">
             {post.images.map((uri, idx) => (
               <View key={idx} className="relative">
@@ -170,36 +236,37 @@ export default function EditPost() {
                 <TouchableOpacity
                   onPress={() => removeImage(idx)}
                   className="absolute top-0 right-0 bg-red-600 p-1 rounded-full"
+                  disabled={isBusy}
                 >
                   <Text className="text-white text-xs">×</Text>
                 </TouchableOpacity>
               </View>
             ))}
           </ScrollView>
-        ) : null}
+        )}
 
         <TouchableOpacity
           onPress={pickImages}
-          disabled={saving}
+          disabled={isBusy}
           className="bg-[#1A4782] py-3 rounded-full items-center mb-6"
         >
           <Text className="text-white text-xl font-heebo-bold">
-            {saving ? 'טוען…' : 'הוסף תמונות'}
+            הוסף תמונות
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={async () => {
-            await save();
-            router.back();
-            router.replace(`/posts/${id}`);
-          }}
-          disabled={saving}
+          onPress={handleSave}
+          disabled={isBusy}
           className="bg-[#1A4782] py-3 rounded-full items-center"
         >
-          <Text className="text-white text-xl font-heebo-bold">
-            {saving ? 'שומר…' : 'שמור שינויים'}
-          </Text>
+         {isUploading ? (
+            <Text className="text-white text-xl font-heebo-bold">מעלה תמונות...</Text>
+          ) : isSaving ? (
+            <Text className="text-white text-xl font-heebo-bold">שומר שינויים...</Text>
+          ) : (
+            <Text className="text-white text-xl font-heebo-bold">שמור שינויים</Text>
+          )}
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
