@@ -22,7 +22,7 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 import './global.css';
-
+import { StatusBar } from 'expo-status-bar';
 // 👉 single notification helper now
 import { registerForPushNotificationsAsync } from './utils/notificationService'; // adjust path if utils folder differs
 
@@ -125,6 +125,11 @@ export default function RootLayout() {
   // ────────────────────────────────────────────────────────────
   return (
     <SafeAreaProvider>
+      <StatusBar 
+        style="light" 
+        backgroundColor="#1A4782" 
+        
+      />
     <AuthContext.Provider value={{ user, isGuest, setIsGuest }}>
       <Stack>
         <Stack.Screen name="index" options={{ headerShown: false }} />

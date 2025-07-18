@@ -17,6 +17,7 @@ import { getUser, type UserData } from "../utils/firestoreUtils";
 import { CommonActions, useNavigation } from '@react-navigation/native';
 // --- Notification setup imports ---
 import * as Notifications from "expo-notifications";
+import { StatusBar } from 'expo-status-bar';
 import { auth, db } from "../../FirebaseConfig";
 import { doc, setDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
@@ -155,10 +156,15 @@ export default function TabsLayout() {
 };
 
   return (
+    
     <SafeAreaView 
     style={{ flex: 1 }}
     edges={['top', 'bottom']} >
       {/* Header */}
+       <StatusBar 
+        style="light" 
+        backgroundColor="#1A4782" 
+      />
       <View
         style={{
           height: 75,
