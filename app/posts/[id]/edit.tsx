@@ -124,7 +124,20 @@ export default function EditPost() {
       // Don't block the user, just log the error
     }
   };
-
+const handleRemoveImage = (index: number) => {
+  Alert.alert(
+    "מחיקת תמונה",
+    "האם אתה בטוח שברצונך למחוק את התמונה?",
+    [
+      { text: "ביטול", style: "cancel" },
+      {
+        text: "מחק",
+        onPress: () => removeImage(index), // This calls the removeImage function in your edit screen
+        style: "destructive",
+      },
+    ]
+  );
+};
   // Save changes to Firebase
   const handleSave = async () => {
     if (
@@ -184,7 +197,7 @@ export default function EditPost() {
   const isBusy = isUploading || isSaving;
 
   return (
-    <SafeAreaView className="flex-1 bg-white" style={{ direction: 'rtl' }}>
+    <SafeAreaView className="flex-1 bg-white" >
       {/* Header */}
       <View className="px-6 pt-5 pb-3">
         <View className="flex-row justify-start mb-4">
@@ -223,27 +236,46 @@ export default function EditPost() {
           textAlign="right"
         />
 
-        <Text className="mb-2 text-start text-xl">תמונות:</Text>
-        {post.images && post.images.length > 0 && (
-          <ScrollView horizontal className="mb-4 space-x-2">
-            {post.images.map((uri, idx) => (
-              <View key={idx} className="relative">
-                <Image
-                  source={{ uri }}
-                  className="w-24 h-24 rounded"
-                  resizeMode="cover"
-                />
-                <TouchableOpacity
-                  onPress={() => removeImage(idx)}
-                  className="absolute top-0 right-0 bg-red-600 p-1 rounded-full"
-                  disabled={isBusy}
-                >
-                  <Text className="text-white text-xs">×</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
-          </ScrollView>
-        )}
+<Text className="mb-2 text-start text-xl">תמונות:</Text>
+{post.images && post.images.length > 0 ? (
+  // This is your existing code for when there ARE images
+  <ScrollView
+    horizontal
+    className="h-40 mb-4"
+    showsHorizontalScrollIndicator={false}
+    contentContainerStyle={{
+      alignItems: 'center',
+      paddingHorizontal: 4,
+    }}
+  >
+    {post.images.map((uri, index) => (
+      <View key={index} className="relative mr-4">
+        <Image
+          source={{ uri }}
+          className="w-36 h-36 rounded-lg"
+          resizeMode="cover"
+        />
+        <TouchableOpacity
+          onPress={() => handleRemoveImage(index)} // Assuming you have this handler
+          className="absolute top-1 right-1 bg-red-600 p-1 rounded-full"
+          disabled={isBusy}
+        >
+          <Text className="text-white text-xs">×</Text>
+        </TouchableOpacity>
+      </View>
+    ))}
+  </ScrollView>
+) : (
+  // This is the NEW code for when there are NO images
+  <View className="h-40 mb-4 flex items-center justify-center bg-gray-100 rounded-lg border border-dashed border-gray-300">
+    <Text className="text-gray-500 font-heebo-medium text-base">
+      אין תמונות בפוסט זה
+    </Text>
+    <Text className="text-gray-400 font-heebo-regular text-sm mt-1">
+      ניתן להוסיף תמונות באמצעות הכפתור למטה
+    </Text>
+  </View>
+)}
 
         <TouchableOpacity
           onPress={pickImages}

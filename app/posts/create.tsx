@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  FlatList,
   TouchableOpacity,
   ScrollView,
   Image,
@@ -116,7 +117,7 @@ const CreatePostScreen = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" style={{ direction: 'rtl' }}>
+    <SafeAreaView className="flex-1 bg-white" >
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
@@ -169,27 +170,36 @@ const CreatePostScreen = () => {
             textAlignVertical="top"
           />
 
-          {/* Image Management */}
-          <Text className="mb-2 text-start text-xl">תמונות:</Text>
-          {images.length > 0 && (
-            <ScrollView horizontal className="mb-4 space-x-2">
-              {images.map((uri, i) => (
-                <View key={i} className="relative">
-                  <Image
-                    source={{ uri }}
-                    className="w-24 h-24 rounded"
-                    resizeMode="cover"
-                  />
-                  <TouchableOpacity
-                    onPress={() => removeImage(i)}
-                    className="absolute top-0 right-0 bg-red-600 p-1 rounded-full"
-                  >
-                    <Text className="text-white text-xs">×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </ScrollView>
-          )}
+{/* Image Management */}
+<Text className="mb-2 text-start text-xl">תמונות:</Text>
+{images.length > 0 && (
+  <View style={{ height: 160 }} className="mb-4">
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={{
+        alignItems: 'center',
+        paddingHorizontal: 4,
+      }}
+    >
+      {images.map((uri, index) => (
+        <View key={index} className="relative mr-4">
+          <Image
+            source={{ uri }}
+            className="w-36 h-36 rounded-lg"
+            resizeMode="cover"
+          />
+          <TouchableOpacity
+            onPress={() => removeImage(index)}
+            className="absolute top-1 right-1 bg-red-600 p-1 rounded-full"
+          >
+            <Text className="text-white text-xs">×</Text>
+          </TouchableOpacity>
+        </View>
+      ))}
+    </ScrollView>
+  </View>
+)}
 
           {/* Add Images Button */}
           <TouchableOpacity

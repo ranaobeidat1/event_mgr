@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import {
   FlatList,
   TouchableOpacity,
@@ -7,9 +7,18 @@ import {
   SafeAreaView,
   Image,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  getDocs,
+  limit,
+  startAfter,
+  DocumentData,
+} from "firebase/firestore";
 import { db, auth } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
 import { useAuth } from "../_layout";
@@ -24,11 +33,9 @@ interface Post {
   createdAt?: any;
 }
 
-interface UserData {
-  id: string;
-  role?: string;
-}
-
+// ========================================================================
+// THIS IS THE CORRECT, FULL PostItem COMPONENT.
+// ========================================================================
 const PostItem = ({ item }: { item: Post }) => {
   const images = item.images || [];
   const total = images.length;
@@ -59,41 +66,41 @@ const PostItem = ({ item }: { item: Post }) => {
   }
 
   // Two images
- if (total === 2) {
-  const cellSize = SCREEN_WIDTH / 2;
+  if (total === 2) {
+    const cellSize = SCREEN_WIDTH / 2;
 
-  return (
-    <View className="m-2 overflow-hidden bg-white rounded-2xl">
-      <View className="flex-row justify-center items-center">
-        {images.map((uri, idx) => (
-          <TouchableOpacity key={idx} onPress={goToDetail}>
-            <Image
-              source={{ uri }}
-              style={{
-                width: cellSize,
-                height: cellSize*2, // 👈 Make image a perfect square
-                borderWidth: 1,
-                borderColor: "#FFFFFF",
-              }}
-              resizeMode="cover" // or "contain" if you prefer showing full image
-            />
-          </TouchableOpacity>
-        ))}
+    return (
+      <View className="m-2 overflow-hidden bg-white rounded-2xl">
+        <View className="flex-row justify-center items-center">
+          {images.map((uri, idx) => (
+            <TouchableOpacity key={idx} onPress={goToDetail}>
+              <Image
+                source={{ uri }}
+                style={{
+                  width: cellSize,
+                  height: cellSize * 2,
+                  borderWidth: 1,
+                  borderColor: "#FFFFFF",
+                }}
+                resizeMode="cover"
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TouchableOpacity
+          onPress={goToDetail}
+          className="p-4 bg-[#1A4782] w-full"
+        >
+          <Text className="text-xl font-heebo-bold text-white text-right">
+            {item.title}
+          </Text>
+          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
+            {item.content}
+          </Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        onPress={goToDetail}
-        className="p-4 bg-[#1A4782] w-full"
-      >
-        <Text className="text-xl font-heebo-bold text-white text-right">
-          {item.title}
-        </Text>
-        <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
-          {item.content}
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
-}
+    );
+  }
 
   // Three images
   if (total === 3) {
@@ -106,14 +113,14 @@ const PostItem = ({ item }: { item: Post }) => {
           style={{
             flexDirection: "row",
             width: SCREEN_WIDTH,
-            height: SCREEN_WIDTH ,
+            height: SCREEN_WIDTH,
           }}
         >
           <Image
             source={{ uri: images[0] }}
             style={{
               width: SCREEN_WIDTH / 2,
-              height: SCREEN_WIDTH ,
+              height: SCREEN_WIDTH,
               borderWidth: 1,
               borderColor: '#FFFFFF',
             }}
@@ -125,7 +132,7 @@ const PostItem = ({ item }: { item: Post }) => {
                 key={idx}
                 source={{ uri }}
                 style={{
-                  width: SCREEN_WIDTH ,
+                  width: SCREEN_WIDTH,
                   height: SCREEN_WIDTH / 2,
                   borderWidth: 1,
                   borderColor: '#FFFFFF',
@@ -201,39 +208,97 @@ const PostItem = ({ item }: { item: Post }) => {
   return null;
 };
 
+// Define how many posts to load per page
+const POSTS_PER_PAGE = 5;
+
 export default function PostsScreen() {
   const { isGuest } = useAuth();
   const [posts, setPosts] = useState<Post[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  useEffect(() => {
-    // Set up posts listener (available to both guests and authenticated users)
-    const postsQuery = query(
-      collection(db, "posts"),
-      orderBy("createdAt", "desc")
-    );
-    const unsubscribe = onSnapshot(postsQuery, (snapshot) => {
-      setPosts(
-        snapshot.docs.map((doc) => ({ id: doc.id, ...(doc.data() as Omit<Post, "id">) }))
-      );
-    });
+  // --- New state for pagination and loading ---
+  const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
+  const [allDataLoaded, setAllDataLoaded] = useState(false);
 
-    // Only check for admin status if not a guest
+  // --- Replaces your old useEffect fetching logic ---
+  useEffect(() => {
+    const fetchInitialPosts = async () => {
+      setLoading(true);
+      try {
+        const firstBatchQuery = query(
+          collection(db, "posts"),
+          orderBy("createdAt", "desc"),
+          limit(POSTS_PER_PAGE)
+        );
+        const docSnapshots = await getDocs(firstBatchQuery);
+        const newPosts = docSnapshots.docs.map((doc) => ({
+          id: doc.id,
+          ...(doc.data() as Omit<Post, "id">),
+        }));
+
+        const lastDoc = docSnapshots.docs[docSnapshots.docs.length - 1];
+        setLastVisible(lastDoc);
+        setPosts(newPosts);
+
+        if (docSnapshots.docs.length < POSTS_PER_PAGE) {
+          setAllDataLoaded(true);
+        }
+      } catch (e) { console.error(e) }
+      finally { setLoading(false) }
+    };
+
+    fetchInitialPosts();
+
+    // Admin check logic remains the same
     if (!isGuest) {
       (async () => {
         const user = auth.currentUser;
         if (user) {
-          const userData = (await getUser(user.uid));
+          const userData = await getUser(user.uid);
           setIsAdmin(userData?.role === "admin");
         }
       })();
     } else {
-      // Reset admin status for guests
       setIsAdmin(false);
     }
-
-    return unsubscribe;
   }, [isGuest]);
+
+  // --- Function to fetch the next page ---
+  const handleLoadMore = async () => {
+    if (loadingMore || allDataLoaded || !lastVisible) return;
+
+    setLoadingMore(true);
+    try {
+      const nextBatchQuery = query(
+        collection(db, "posts"),
+        orderBy("createdAt", "desc"),
+        startAfter(lastVisible),
+        limit(POSTS_PER_PAGE)
+      );
+
+      const docSnapshots = await getDocs(nextBatchQuery);
+      if (docSnapshots.empty) {
+        setAllDataLoaded(true);
+        return;
+      }
+
+      const newPosts = docSnapshots.docs.map((doc) => ({
+        id: doc.id,
+        ...(doc.data() as Omit<Post, "id">),
+      }));
+
+      const lastDoc = docSnapshots.docs[docSnapshots.docs.length - 1];
+      setLastVisible(lastDoc);
+      setPosts((prevPosts) => [...prevPosts, ...newPosts]);
+
+      if (docSnapshots.docs.length < POSTS_PER_PAGE) {
+        setAllDataLoaded(true);
+      }
+    } catch (e) { console.error(e) }
+    finally { setLoadingMore(false) }
+  };
 
   const ListEmptyComponent = () => (
     <View className="flex-1 items-center justify-center mt-20">
@@ -242,6 +307,38 @@ export default function PostsScreen() {
       </Text>
     </View>
   );
+
+  // --- Component for the "Load More" button ---
+  const renderFooter = () => {
+    if (allDataLoaded) return null;
+    if (!loading && posts.length === 0) return null; // Don't show button if list is empty
+
+    return (
+      <View className="items-center my-8">
+        <TouchableOpacity
+          onPress={handleLoadMore}
+          disabled={loadingMore}
+          className="bg-primary px-12 py-3 rounded-full shadow-lg"
+        >
+          {loadingMore ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text className="text-white text-lg font-heebo-bold">
+              טען עוד
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    );
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#1A4782" />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
@@ -259,6 +356,7 @@ export default function PostsScreen() {
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => <PostItem item={item} />}
         ListEmptyComponent={ListEmptyComponent}
+        ListFooterComponent={renderFooter}
         contentContainerStyle={{
           paddingBottom: 120,
           paddingTop: isAdmin ? 60 : 20,

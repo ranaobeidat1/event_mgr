@@ -5,6 +5,7 @@ import React, {
   useEffect,
   useState,
 } from 'react';
+import "../FirebaseConfig"
 import { Stack, SplashScreen } from 'expo-router';
 import { useFonts } from 'expo-font';
 import { onAuthStateChanged, User } from 'firebase/auth';

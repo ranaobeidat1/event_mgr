@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "222769047395",
+    "project_id": "sahlab-fc516",
+    "storage_bucket": "sahlab-fc516.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:222769047395:android:dc93b965de85a6790c5556",
+        "android_client_info": {
+          "package_name": "com.sahlab.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYQAVIr9IIIX3bTvBOZQduRRdJ0l0lfBo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
