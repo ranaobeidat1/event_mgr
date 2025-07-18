@@ -170,18 +170,25 @@ const ClassDetails = () => {
     }
     
     if (isGuest) {
-      Alert.alert(
-      "דרושה הרשמה",
-      "עליך להירשם כדי להצטרף לחוג",
-      [
-        {
-        text: "אישור",
-        style: "cancel"
-        }
-      ]
-      );
-      return;
-    }
+  Alert.alert(
+    "דרושה הרשמה",
+    "עליך להירשם כדי להצטרף לחוג. האם ברצונך לעבור למסך ההתחברות?",
+    [
+      {
+        text: "לא תודה",
+        style: "cancel",
+      },
+      {
+        text: "כן, עבור להתחברות",
+        onPress: () => {
+          router.back(); // Go back to the previous screen
+          router.replace('/login'); 
+        },
+      },
+    ]
+  );
+  return;
+}
     
     if (isRegistered) {
       Alert.alert("הודעה", "כבר השארת פרטים לחוג זה");

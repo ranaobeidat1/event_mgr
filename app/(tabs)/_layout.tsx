@@ -14,7 +14,7 @@ import { Tabs, useRouter } from "expo-router";
 import { useFonts } from "expo-font";
 import { useAuth } from "../_layout";
 import { getUser, type UserData } from "../utils/firestoreUtils";
-
+import { CommonActions, useNavigation } from '@react-navigation/native';
 // --- Notification setup imports ---
 import * as Notifications from "expo-notifications";
 import { auth, db } from "../../FirebaseConfig";
@@ -131,22 +131,28 @@ export default function TabsLayout() {
 
   const displayName = isGuest ? "אורח" : profile?.firstName ?? "משתמש";
 
-  const handleRestrictedFeature = () => {
-    if (isGuest) {
-      Alert.alert(
+ const handleRestrictedFeature = () => {
+  if (isGuest) {
+    Alert.alert(
       "מגבלת גישה",
-      "הגישה למאפיין זה מוגבלת לחשבונות רשומים בלבד.",
+      "המאפיין הזה מיועד למשתמשים רשומים בלבד. האם תרצה להירשם או להתחבר?",
       [
         {
-        text: "אישור",
-        style: "cancel",
+          text: "לא תודה",
+          style: "cancel",
+        },
+        {
+          text: "כן, עברו להתחברות",
+          onPress: () => {
+            router.replace('/login'); // Clears history and navigates to login
+          },
         },
       ]
-      );
-      return true;
-    }
-    return false;
-  };
+    );
+    return true;
+  }
+  return false;
+};
 
   return (
     <SafeAreaView 

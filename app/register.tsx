@@ -19,8 +19,9 @@ import {
   onAuthStateChanged,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
-
+import { useAuth } from './_layout'; 
 export default function RegisterScreen() {
+  const {  setIsGuest } = useAuth();
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName]   = useState('');
   const [email, setEmail]         = useState('');
@@ -68,47 +69,44 @@ export default function RegisterScreen() {
   }, []);
 
   // Combined registration function with Firestore logic
+
   const handleRegister = async () => {
     setError(null);
-    
-    // Validate input fields
+
+    // 1. Validate inputs
     if (!firstName || !lastName || !email || !password) {
       setError('All fields are required');
       return;
     }
-    
+
     try {
       console.log('Starting registration process');
-      
-      // Create authentication user
-      const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const user = userCredential.user;
+
+      // 2. Create auth user
+      const { user } = await createUserWithEmailAndPassword(
+        auth,
+        email.trim(),
+        password
+      );
       console.log('Authentication successful. User ID:', user.uid);
-      
-      // Create user data object
-      const userData = {
-        firstName: firstName,
-        lastName: lastName,
-        email: email,
-        role: "user",
-        createdAt: new Date()
-      };
-      console.log('User data to save:', userData);
-      
-      // Save to Firestore
-      const userDocRef = doc(db, "users", user.uid);
-      console.log('Attempting to write to Firestore, path:', `users/${user.uid}`);
-      
-      // Use await to ensure the write completes
-      await setDoc(userDocRef, userData);
-      
+
+      // 3. Write profile to Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        firstName,
+        lastName,
+        email,
+        role: 'user',
+        createdAt: new Date(),
+      });
       console.log('Firestore write successful');
-      
-      // Navigate after confirming the write was successful
+
+      // 4. Clear the guest flag
+      setIsGuest(false);
+
+      // 5. Navigate into your tabs and block “back”
       router.replace('/(tabs)');
     } catch (err: any) {
       console.error('Registration error:', err);
-      if (err.code) console.error('Error code:', err.code);
       setError(err.message || 'Registration failed');
     }
   };
