@@ -10,16 +10,15 @@ import {
   Platform,
   KeyboardAvoidingView,
   ActivityIndicator,
-  Switch, // Added import
+  Switch,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker'; // Added import
+import { Picker } from '@react-native-picker/picker';
 import { Stack, router, useLocalSearchParams } from 'expo-router';
 import { db, auth } from '../../FirebaseConfig';
-import { collection, doc, updateDoc, getDocs, getDoc, query, where, serverTimestamp } from 'firebase/firestore';
-
+ import { FieldValue, Timestamp, GeoPoint } from '../../FirebaseConfig';
 // Interface for notification recipients
 interface NotificationTarget {
-  type: 'all' | 'course'; // Removed 'specific' as it's not used
+  type: 'all' | 'course';
   courseId?: string;
 }
 
@@ -37,22 +36,19 @@ export default function EditAlertScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Push notification settings
-  const [sendPushNotification, setSendPushNotification] = useState(false); // Default to false for edits
+  const [sendPushNotification, setSendPushNotification] = useState(false);
   const [notificationTarget, setNotificationTarget] = useState<NotificationTarget>({ 
     type: 'all'
   });
   const [courses, setCourses] = useState<CourseData[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
 
-  // Load alert data and courses
   useEffect(() => {
     const loadData = async () => {
       setIsLoading(true);
       try {
-        // Load courses first
         setLoadingCourses(true);
-        const coursesSnapshot = await getDocs(collection(db, 'courses'));
+        const coursesSnapshot = await db.collection('courses').get();
         const coursesData = coursesSnapshot.docs.map(doc => ({
           id: doc.id,
           name: doc.data().name
@@ -60,18 +56,23 @@ export default function EditAlertScreen() {
         setCourses(coursesData);
         setLoadingCourses(false);
 
-        // Load alert data
         if (alertId) {
-          const alertDoc = await getDoc(doc(db, 'alerts', alertId));
-          if (alertDoc.exists()) {
+          const alertDoc = await db.collection('alerts').doc(alertId).get();
+          // --- THIS BLOCK IS FIXED ---
+          // Use the 'exists' property (boolean), not a function
+          if (alertDoc.exists()) { 
             const alertData = alertDoc.data();
-            setTitle(alertData.title || '');
-            setMessage(alertData.message || '');
-            setNotificationTarget({
-              type: alertData.targetType || 'all',
-              courseId: alertData.targetCourseId || (coursesData.length > 0 ? coursesData[0].id : undefined)
-            });
+            // Add a check to ensure alertData is not undefined before using it
+            if (alertData) { 
+              setTitle(alertData.title || '');
+              setMessage(alertData.message || '');
+              setNotificationTarget({
+                type: alertData.targetType || 'all',
+                courseId: alertData.targetCourseId || (coursesData.length > 0 ? coursesData[0].id : undefined)
+              });
+            }
           }
+          // --- END FIX ---
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -84,21 +85,18 @@ export default function EditAlertScreen() {
     loadData();
   }, [alertId]);
   
-  // Get FCM tokens based on target
   const getFCMTokensForTarget = async (target: NotificationTarget): Promise<string[]> => {
     try {
       if (target.type === 'all') {
-        const tokensSnapshot = await getDocs(collection(db, 'fcmTokens'));
+        const tokensSnapshot = await db.collection('fcmTokens').get();
         return tokensSnapshot.docs.map(doc => doc.data().token).filter(Boolean);
       } else if (target.type === 'course' && target.courseId) {
-        const registrationsSnapshot = await getDocs(
-          query(collection(db, 'Registrations'), where('courseId', '==', target.courseId))
-        );
+        const registrationsSnapshot = await db.collection('Registrations').where('courseId', '==', target.courseId).get();
         const userIds = registrationsSnapshot.docs.map(doc => doc.data().userId);
         
         if (userIds.length === 0) return [];
         
-        const tokensSnapshot = await getDocs(collection(db, 'fcmTokens'));
+        const tokensSnapshot = await db.collection('fcmTokens').get();
         return tokensSnapshot.docs
           .filter(doc => userIds.includes(doc.data().userId))
           .map(doc => doc.data().token)
@@ -111,7 +109,6 @@ export default function EditAlertScreen() {
     }
   };
 
-  // Send push notification using Expo Push API
   const sendPushNotifications = async (tokens: string[], alertTitle: string, alertMessage: string) => {
     if (tokens.length === 0) return;
     const messages = tokens.map(token => ({
@@ -145,19 +142,17 @@ export default function EditAlertScreen() {
       const user = auth.currentUser;
       if (!user) throw new Error('משתמש לא מזוהה');
 
-      // Update alert data in Firestore
       const alertData = {
         title: title.trim(),
         message: message.trim(),
-        notificationSent: sendPushNotification, // Reflects if it was re-sent
+        notificationSent: sendPushNotification,
         targetType: notificationTarget.type,
         targetCourseId: notificationTarget.type === 'course' ? notificationTarget.courseId : null,
-        updatedAt: serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
         updatedBy: user.uid,
       };
-      await updateDoc(doc(db, 'alerts', alertId), alertData);
+      await db.collection('alerts').doc(alertId).update(alertData);
 
-      // Re-send push notifications if enabled
       if (sendPushNotification) {
         const tokens = await getFCMTokensForTarget(notificationTarget);
         if (tokens.length > 0) {
@@ -165,7 +160,6 @@ export default function EditAlertScreen() {
         }
       }
       
-      // Navigate back to previous screen
       router.back();
 
     } catch (error) {
@@ -210,7 +204,6 @@ export default function EditAlertScreen() {
             className="flex-1 px-6"
             contentContainerStyle={{ paddingBottom: 40 }}
           >
-            {/* Title Input */}
             <View className='mb-4'>
               <TextInput
                 className="bg-gray-100 rounded-lg px-5 py-3 text-xl font-heebo-regular text-right"
@@ -221,7 +214,6 @@ export default function EditAlertScreen() {
               />
             </View>
 
-            {/* Message Input */}
             <View className="mb-4">
               <TextInput
                 className="bg-gray-100 rounded-lg px-5 py-3 text-xl font-heebo-regular text-right h-32"
@@ -233,9 +225,8 @@ export default function EditAlertScreen() {
                 numberOfLines={4}
                 textAlignVertical="top"
               />
-            </View>          
+            </View>
 
-            {/* Submit Button */}
             <TouchableOpacity
               onPress={handleSubmit}
               disabled={isSubmitting}
@@ -243,8 +234,8 @@ export default function EditAlertScreen() {
             >
               {isSubmitting ? (
                 <View className="flex-row items-center justify-center">
-                  <ActivityIndicator color="black" size="large" />
-                  <Text className="text-black text-center text-xl font-heebo-bold ml-2">
+                  <ActivityIndicator color="white" size="small" />
+                  <Text className="text-white text-center text-xl font-heebo-bold ml-2">
                     מעדכן התראה...
                   </Text>
                 </View>

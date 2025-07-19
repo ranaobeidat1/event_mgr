@@ -1,51 +1,54 @@
-// Update your FirebaseConfig.tsx to add Firebase Storage
-import { initializeApp } from "firebase/app";
-import { initializeAuth,sendPasswordResetEmail,getReactNativePersistence  } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Platform } from "react-native";
+// FirebaseConfig.tsx - Corrected for Production Use
+
+// --- Step 1: Use imports from @react-native-firebase only ---
+// Do not use 'firebase/app', 'firebase/auth', etc.
+import auth from "@react-native-firebase/auth";
+import firestore from "@react-native-firebase/firestore";
+import storage from "@react-native-firebase/storage";
 import { getApp as getRnfApp } from "@react-native-firebase/app";
 import {
- ReactNativeFirebaseAppCheckProvider,
- initializeAppCheck
+  ReactNativeFirebaseAppCheckProvider,
+  initializeAppCheck
 } from "@react-native-firebase/app-check";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyCkL3MCILFGcZCjnZcO9Hb-z2CfpZVkPQ8",
-  authDomain: "sahlab-fc516.firebaseapp.com",
-  projectId: "sahlab-fc516",
-  storageBucket: "sahlab-fc516.firebasestorage.app", 
-  messagingSenderId: "222769047395",
-  appId: "1:222769047395:web:0162805bc14f04f20c5556",
-  measurementId: "G-5NWM3TJEK3"
-};
+// The firebaseConfig object is not needed. @react-native-firebase reads
+// the configuration from your google-services.json and GoogleService-Info.plist files.
 
+// --- Step 2: Get the single, native Firebase App instance ---
+const app = getRnfApp();
 
-
-
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-
+// --- Step 3: Initialize App Check on the native app instance ---
 const rnfbProvider = new ReactNativeFirebaseAppCheckProvider();
 rnfbProvider.configure({
- android:  { provider: __DEV__ ? "debug" : "playIntegrity" },
+  // This correctly switches between debug and production providers
+  android:  { provider: __DEV__ ? "debug" : "playIntegrity" },
   apple:    { provider: __DEV__ ? "debug" : "deviceCheck" }
 });
 
 initializeAppCheck(
- getRnfApp(),               // RNFirebase App instance
- { provider: rnfbProvider, isTokenAutoRefreshEnabled: true }
+  app, // Use the same native app instance
+  { provider: rnfbProvider, isTokenAutoRefreshEnabled: true }
 );
 
-
-const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
-});
-const db = getFirestore(app);
-const storage = getStorage(app);
+// --- Step 4: Get Auth, Firestore, and Storage from @react-native-firebase ---
+// Persistence is handled automatically by the native SDK, so AsyncStorage is not needed here.
+const authInstance = auth();
+const dbInstance = firestore();
+const storageInstance = storage();
+const { FieldValue, Timestamp, GeoPoint } = firestore;
+// --- Step 5: Your existing function, now using the correct auth instance ---
 export async function forgotPassword(email: string): Promise<void> {
   if (!email) throw new Error("Email is required to reset password.");
-  await sendPasswordResetEmail(auth, email);
+  await authInstance.sendPasswordResetEmail(email);
 }
-export { app, auth, db, storage };
+
+// --- Step 6: Export all the instances with the names your app expects ---
+export {
+    app,
+    authInstance as auth,
+    dbInstance as db,
+    storageInstance as storage,
+     FieldValue,
+  Timestamp,
+  GeoPoint,
+};

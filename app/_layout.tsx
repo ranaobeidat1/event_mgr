@@ -8,24 +8,19 @@ import React, {
 import "../FirebaseConfig"
 import { Stack, SplashScreen } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { onAuthStateChanged, User } from 'firebase/auth';
+// --- CORRECTED IMPORTS ---
 import { auth, db } from '../FirebaseConfig';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth'; // Correct type import
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   View,
   ActivityIndicator,
   I18nManager,
-  Platform,
 } from 'react-native';
 import * as Device from 'expo-device';
-import {
-  doc,
-  updateDoc,
-} from 'firebase/firestore';
 import './global.css';
 import { StatusBar } from 'expo-status-bar';
-// 👉 single notification helper now
-import { registerForPushNotificationsAsync } from './utils/notificationService'; // adjust path if utils folder differs
+import { registerForPushNotificationsAsync } from './utils/notificationService';
 
 // ────────────────────────────────────────────────────────────
 //  Disable RTL
@@ -37,7 +32,7 @@ I18nManager.forceRTL(false);
 //  Auth context
 // ────────────────────────────────────────────────────────────
 type AuthContextType = {
-  user: User | null;
+  user: FirebaseAuthTypes.User | null; // Use correct user type
   isGuest: boolean;
   setIsGuest: (value: boolean) => void;
 };
@@ -52,7 +47,6 @@ export const useAuth = () => useContext(AuthContext);
 //  Root layout component
 // ────────────────────────────────────────────────────────────
 export default function RootLayout() {
-  // ① Fonts
   const [fontsLoaded] = useFonts({
     'Heebo-Thin': require('../assets/fonts/Heebo-Thin.ttf'),
     'Heebo-ExtraLight': require('../assets/fonts/Heebo-ExtraLight.ttf'),
@@ -66,11 +60,9 @@ export default function RootLayout() {
     Tahoma: require('../assets/fonts/tahoma.ttf'),
   });
 
-  // ② Auth + guest
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null); // Use correct user type
   const [isGuest, setIsGuest] = useState(false);
 
-  // ③ Global readiness flags
   const [authReady, setAuthReady] = useState(false);
   const [pushReady, setPushReady] = useState(false);
 
@@ -83,20 +75,20 @@ export default function RootLayout() {
       setPushReady(true);
       return;
     }
-
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    
+    // --- CORRECTED AUTH LISTENER SYNTAX ---
+    const unsub = auth.onAuthStateChanged(async (u) => {
       setUser(u);
       setAuthReady(true);
 
       if (u && Device.isDevice) {
-        // get + store token (function already updates Firestore)
         await registerForPushNotificationsAsync();
       } else {
         console.log('Skipping push registration on emulator or signed-out user');
-        // optional: if user signs out, clear token field
         if (!u && Device.isDevice && user?.uid) {
           try {
-            await updateDoc(doc(db, 'users', user.uid), { expoPushToken: '' });
+            // --- CORRECTED FIRESTORE SYNTAX ---
+            await db.collection('users').doc(user.uid).update({ expoPushToken: '' });
           } catch {}
         }
       }
@@ -104,22 +96,28 @@ export default function RootLayout() {
     });
 
     return () => unsub();
-  }, [isGuest]);
+  }, [isGuest, user?.uid]); // Added user.uid to dependency array
 
   // ────────────────────────────────────────────────────────────
   //  Splash until everything is ready
   // ────────────────────────────────────────────────────────────
   const ready = fontsLoaded && authReady && pushReady;
 
+  useEffect(() => {
+    if (ready) {
+      SplashScreen.hideAsync();
+    } else {
+      SplashScreen.preventAutoHideAsync();
+    }
+  }, [ready]);
+
   if (!ready) {
-    SplashScreen.preventAutoHideAsync();
     return (
       <View className="flex-1 items-center justify-center">
         <ActivityIndicator size="large" color="#1A4782" />
       </View>
     );
   }
-  SplashScreen.hideAsync();
 
   // ────────────────────────────────────────────────────────────
   //  Render navigation
@@ -129,7 +127,6 @@ export default function RootLayout() {
       <StatusBar 
         style="light" 
         backgroundColor="#1A4782" 
-        
       />
     <AuthContext.Provider value={{ user, isGuest, setIsGuest }}>
       <Stack>
@@ -153,6 +150,10 @@ export default function RootLayout() {
         />
         <Stack.Screen
           name="alerts/create-alert"
+          options={{ headerShown: false }}
+        />
+         <Stack.Screen
+          name="alerts/edit-alert"
           options={{ headerShown: false }}
         />
         <Stack.Screen name="users" options={{ headerShown: false }} />

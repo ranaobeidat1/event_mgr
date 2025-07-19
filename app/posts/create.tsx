@@ -3,24 +3,19 @@ import {
   View,
   Text,
   TextInput,
-  FlatList,
-  TouchableOpacity,
   ScrollView,
   Image,
   Alert,SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  TouchableOpacity,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { router } from 'expo-router';
+// --- CORRECTED IMPORTS ---
 import { db, auth, storage } from '../../FirebaseConfig';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import {
-  ref as storageRef,
-  uploadBytes,
-  getDownloadURL,
-} from 'firebase/storage';
+ import { FieldValue, Timestamp, GeoPoint } from '../../FirebaseConfig';
 
 const CreatePostScreen = () => {
   const [title, setTitle] = useState('');
@@ -28,7 +23,6 @@ const CreatePostScreen = () => {
   const [images, setImages] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
-  // Pick multiple images
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -46,32 +40,26 @@ const CreatePostScreen = () => {
     }
   };
 
-  // Remove selected image by index
   const removeImage = (idx: number) => {
     setImages((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  // Upload images to Firebase Storage and return URLs
   const uploadImagesAndGetUrls = async (uris: string[]) => {
     const uploadPromises = uris.map(async (uri, idx) => {
       const response = await fetch(uri);
       const blob = await response.blob();
       const user = auth.currentUser!;
       const timestamp = Date.now();
-      const imageRef = storageRef(
-        storage,
-        `posts/${user.uid}/${timestamp}_${idx}`
-      );
-      await uploadBytes(imageRef, blob);
-      const downloadUrl = await getDownloadURL(imageRef);
+      // --- CORRECTED STORAGE SYNTAX ---
+      const imageRef = storage.ref(`posts/${user.uid}/${timestamp}_${idx}`);
+      await imageRef.put(blob);
+      const downloadUrl = await imageRef.getDownloadURL();
       return downloadUrl;
     });
     return Promise.all(uploadPromises);
   };
 
-  // Submit new post
   const handleSubmit = async () => {
-    // require at least one of title, content or images
     if (
       title.trim() === '' &&
       content.trim() === '' &&
@@ -86,25 +74,23 @@ const CreatePostScreen = () => {
       const user = auth.currentUser;
       if (!user) throw new Error('משתמש לא מזוהה');
 
-      // upload images if any
       const imageUrls = images.length
         ? await uploadImagesAndGetUrls(images)
         : [];
 
-      // add to Firestore
-      await addDoc(collection(db, 'posts'), {
-        title: title.trim() || null,      // you can store null if empty
-        content: content.trim() || null,  // same here
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      await db.collection('posts').add({
+        title: title.trim() || null,
+        content: content.trim() || null,
         images: imageUrls,
         authorId: user.uid,
-        createdAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(), // Correct server timestamp
       });
 
       Alert.alert('הצלחה', 'הפוסט נוצר בהצלחה', [
-        { text: 'אישור', onPress: () => router.replace('/(tabs)') },
+        { text: 'אישור', onPress: () => router.replace('/(tabs)/gallery') },
       ]);
 
-      // reset form
       setTitle('');
       setContent('');
       setImages([]);
@@ -122,8 +108,6 @@ const CreatePostScreen = () => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         className="flex-1"
       >
-
-        {/* Header */}
         <View className="px-6 pt-5 pb-3">
           <View className="flex-row justify-start mb-4">
             <TouchableOpacity onPress={() => router.back()}>
@@ -140,12 +124,10 @@ const CreatePostScreen = () => {
           </View>
         </View>
 
-        {/* Form */}
         <ScrollView
           className="flex-1 px-6"
           contentContainerStyle={{ paddingBottom: 40 }}
         >
-          {/* Title Input */}
           <Text className="mb-1 text-start text-xl">כותרת:</Text>
           <TextInput
             className="border border-gray-300 rounded-lg p-2 mb-4 text-lg"
@@ -156,7 +138,6 @@ const CreatePostScreen = () => {
             textAlign="right"
           />
 
-          {/* Content Input */}
           <Text className="mb-1 text-start text-xl">תוכן:</Text>
           <TextInput
             className="border border-gray-300 rounded-lg p-2 mb-4 h-32 text-top text-lg"
@@ -170,38 +151,36 @@ const CreatePostScreen = () => {
             textAlignVertical="top"
           />
 
-{/* Image Management */}
-<Text className="mb-2 text-start text-xl">תמונות:</Text>
-{images.length > 0 && (
-  <View style={{ height: 160 }} className="mb-4">
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={{
-        alignItems: 'center',
-        paddingHorizontal: 4,
-      }}
-    >
-      {images.map((uri, index) => (
-        <View key={index} className="relative mr-4">
-          <Image
-            source={{ uri }}
-            className="w-36 h-36 rounded-lg"
-            resizeMode="cover"
-          />
-          <TouchableOpacity
-            onPress={() => removeImage(index)}
-            className="absolute top-1 right-1 bg-red-600 p-1 rounded-full"
-          >
-            <Text className="text-white text-xs">×</Text>
-          </TouchableOpacity>
-        </View>
-      ))}
-    </ScrollView>
-  </View>
-)}
+          <Text className="mb-2 text-start text-xl">תמונות:</Text>
+          {images.length > 0 && (
+            <View style={{ height: 160 }} className="mb-4">
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={{
+                  alignItems: 'center',
+                  paddingHorizontal: 4,
+                }}
+              >
+                {images.map((uri, index) => (
+                  <View key={index} className="relative mr-4">
+                    <Image
+                      source={{ uri }}
+                      className="w-36 h-36 rounded-lg"
+                      resizeMode="cover"
+                    />
+                    <TouchableOpacity
+                      onPress={() => removeImage(index)}
+                      className="absolute top-1 right-1 bg-red-600 p-1 rounded-full"
+                    >
+                      <Text className="text-white text-xs">×</Text>
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          )}
 
-          {/* Add Images Button */}
           <TouchableOpacity
             className="bg-[#1A4782] py-3 rounded-full items-center mb-6"
             onPress={pickImages}
@@ -212,7 +191,6 @@ const CreatePostScreen = () => {
             </Text>
           </TouchableOpacity>
 
-          {/* Submit Button */}
           <TouchableOpacity
             className={`bg-[#1A4782] py-3 rounded-full items-center ${
               saving ? 'opacity-50' : ''
@@ -220,9 +198,13 @@ const CreatePostScreen = () => {
             onPress={handleSubmit}
             disabled={saving}
           >
-            <Text className="text-white text-xl font-heebo-bold">
-              {saving ? 'מפרסם...' : 'פרסם פוסט'}
-            </Text>
+             {saving ? (
+                <ActivityIndicator color="white" />
+             ) : (
+                <Text className="text-white text-xl font-heebo-bold">
+                    פרסם פוסט
+                </Text>
+             )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>

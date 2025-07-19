@@ -1,3 +1,5 @@
+// app/(tabs)/alerts.tsx
+
 import React, { useEffect, useState, useCallback } from "react";
 import {
   ScrollView,
@@ -11,18 +13,7 @@ import {
 import { router } from "expo-router";
 import { auth, db } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
-import {
-  collection,
-  query,
-  orderBy,
-  Timestamp,
-  doc,
-  deleteDoc,
-  limit, // Added for pagination
-  getDocs, // Added for pagination
-  startAfter, // Added for pagination
-  DocumentData, // Added for pagination
-} from "firebase/firestore";
+import { FirebaseFirestoreTypes } from "@react-native-firebase/firestore";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
@@ -31,111 +22,102 @@ interface AlertData {
   title?: string;
   message: string;
   createdBy: string;
-  createdAt?: Timestamp | Date | null;
+  createdAt?: FirebaseFirestoreTypes.Timestamp | Date | null;
   notificationSent?: boolean;
   targetType?: "all" | "course";
   targetCourseId?: string;
 }
 
-const ALERTS_PAGE_SIZE = 10; // Number of alerts to fetch per page
+const ALERTS_PAGE_SIZE = 10;
 
 export default function AlertsScreen() {
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
 
   const [filter, setFilter] = useState<"all" | "general" | "course">("all");
-  const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>(
-    {}
-  );
-  const [deletingAlerts, setDeletingAlerts] = useState<Record<string, boolean>>(
-    {}
-  );
+  const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
+  const [deletingAlerts, setDeletingAlerts] = useState<Record<string, boolean>>({});
 
-  // New state for pagination
-  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
+  // Pagination state
+  const [lastVisible, setLastVisible] = useState<FirebaseFirestoreTypes.DocumentData | null>(null);
   const [loadingMore, setLoadingMore] = useState(false);
   const [allDataLoaded, setAllDataLoaded] = useState(false);
 
+  // 1) Check user role on mount
   const checkUserRole = useCallback(async () => {
     setLoadingUser(true);
     const user = auth.currentUser;
     if (user) {
       const userData = (await getUser(user.uid)) as { role?: string } | null;
-      if (userData?.role === "admin") setIsAdmin(true);
+      setIsAdmin(userData?.role === "admin");
     }
     setLoadingUser(false);
   }, []);
 
-  const fetchInitialAlerts = useCallback(async () => {
-    setLoadingAlerts(true);
-    setAllDataLoaded(false);
-
-    const firstBatchQuery = query(
-      collection(db, "alerts"),
-      orderBy("createdAt", "desc"),
-      limit(ALERTS_PAGE_SIZE)
-    );
-
-    try {
-      const docSnapshots = await getDocs(firstBatchQuery);
-      const fetched = docSnapshots.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<AlertData, "id">),
-      }));
-
-      const lastDoc = docSnapshots.docs[docSnapshots.docs.length - 1];
-      setLastVisible(lastDoc);
-      setAlerts(fetched);
-
-      if (docSnapshots.docs.length < ALERTS_PAGE_SIZE) {
-        setAllDataLoaded(true);
-      }
-    } catch (err) {
-      console.error(err);
-      Alert.alert("Error", "Could not load alerts.");
-    } finally {
-      setLoadingAlerts(false);
-    }
-  }, []);
-
+  // 2) Real‑time listener for first page of alerts
   useEffect(() => {
     checkUserRole();
-    fetchInitialAlerts();
-  }, [checkUserRole, fetchInitialAlerts]);
 
-  const handleLoadMore = async () => {
-    if (loadingMore || allDataLoaded || !lastVisible) return;
+    setLoadingAlerts(true);
+    const firstPageQuery = db
+      .collection("alerts")
+      .orderBy("createdAt", "desc")
+      .limit(ALERTS_PAGE_SIZE);
 
-    setLoadingMore(true);
-    const nextBatchQuery = query(
-      collection(db, "alerts"),
-      orderBy("createdAt", "desc"),
-      startAfter(lastVisible),
-      limit(ALERTS_PAGE_SIZE)
+    const unsubscribe = firstPageQuery.onSnapshot(
+      (snap) => {
+        const docs = snap.docs.map(d => ({
+          id: d.id,
+          ...(d.data() as Omit<AlertData, "id">),
+        }));
+        setAlerts(docs);
+
+        const lastDoc = snap.docs[snap.docs.length - 1] || null;
+        setLastVisible(lastDoc);
+        setAllDataLoaded(snap.docs.length < ALERTS_PAGE_SIZE);
+        setLoadingAlerts(false);
+      },
+      (error) => {
+        console.error("Alerts onSnapshot error:", error);
+        Alert.alert("שגיאה", "לא ניתן לטעון את ההתראות.");
+        setLoadingAlerts(false);
+      }
     );
 
+    return () => unsubscribe();
+  }, [checkUserRole]);
+
+  // 3) Load more (older) alerts
+  const handleLoadMore = async () => {
+    if (loadingMore || allDataLoaded || !lastVisible) return;
+    setLoadingMore(true);
+
+    const nextPageQuery = db
+      .collection("alerts")
+      .orderBy("createdAt", "desc")
+      .startAfter(lastVisible)
+      .limit(ALERTS_PAGE_SIZE);
+
     try {
-      const docSnapshots = await getDocs(nextBatchQuery);
-      if (docSnapshots.empty) {
+      const snap = await nextPageQuery.get();
+      if (snap.empty) {
         setAllDataLoaded(true);
-        return;
-      }
-
-      const newAlerts = docSnapshots.docs.map((d) => ({
-        id: d.id,
-        ...(d.data() as Omit<AlertData, "id">),
-      }));
-
-      const lastDoc = docSnapshots.docs[docSnapshots.docs.length - 1];
-      setLastVisible(lastDoc);
-      setAlerts((prevAlerts) => [...prevAlerts, ...newAlerts]);
-
-      if (docSnapshots.docs.length < ALERTS_PAGE_SIZE) {
-        setAllDataLoaded(true);
+      } else {
+        const more = snap.docs.map(d => ({
+          id: d.id,
+          ...(d.data() as Omit<AlertData, "id">),
+        }));
+        setAlerts(prev => [...prev, ...more]);
+        const lastDoc = snap.docs[snap.docs.length - 1];
+        setLastVisible(lastDoc);
+        if (snap.docs.length < ALERTS_PAGE_SIZE) {
+          setAllDataLoaded(true);
+        }
       }
     } catch (err) {
       console.error(err);
@@ -145,54 +127,46 @@ export default function AlertsScreen() {
     }
   };
 
-  const formatDate = (ts?: Timestamp | Date | null) => {
+  // Helpers
+  const formatDate = (ts?: FirebaseFirestoreTypes.Timestamp | Date | null) => {
     if (!ts) return "";
-    let dateObj: Date;
-    if (typeof (ts as any)?.toDate === "function") {
-      dateObj = (ts as any).toDate();
-    } else {
-      dateObj = ts as Date;
-    }
+    const dateObj =
+      typeof (ts as any)?.toDate === "function"
+        ? (ts as any).toDate()
+        : (ts as unknown as Date);
     return dateObj.toLocaleDateString("he-IL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
     });
   };
 
   const toggleReadMore = (id: string) =>
-    setExpandedAlerts((e) => ({ ...e, [id]: !e[id] }));
+    setExpandedAlerts(e => ({ ...e, [id]: !e[id] }));
 
-  const handleDeleteAlert = async (alertId: string, title?: string) => {
+  const handleDeleteAlert = (alertId: string, title?: string) =>
     Alert.alert(
       "מחיקת התראה",
-      `האם אתה בטוח שברצונך למחוק את ההתראה${
-        title ? ` \"${title}\"` : ""
-      }?`,
+      `האם אתה בטוח שברצונך למחוק את ההתראה${title ? ` "${title}"` : ""}?`,
       [
         { text: "ביטול", style: "cancel" },
         {
           text: "מחק",
           style: "destructive",
           onPress: async () => {
-            setDeletingAlerts((d) => ({ ...d, [alertId]: true }));
+            setDeletingAlerts(d => ({ ...d, [alertId]: true }));
             try {
-              await deleteDoc(doc(db, "alerts", alertId));
-              // Remove the alert from the local state to update UI immediately
-              setAlerts((prev) => prev.filter((a) => a.id !== alertId));
+              await db.collection("alerts").doc(alertId).delete();
+              setAlerts(prev => prev.filter(a => a.id !== alertId));
               Alert.alert("הצלחה", "ההתראה נמחקה בהצלחה");
             } catch {
               Alert.alert("שגיאה", "אירעה שגיאה במחיקת ההתראה");
             } finally {
-              setDeletingAlerts((d) => ({ ...d, [alertId]: false }));
+              setDeletingAlerts(d => ({ ...d, [alertId]: false }));
             }
           },
         },
       ]
     );
-  };
 
   const handleEditAlert = (alert: AlertData) =>
     router.push({
@@ -206,6 +180,7 @@ export default function AlertsScreen() {
       },
     });
 
+  // Loading state
   if (loadingUser || loadingAlerts) {
     return (
       <SafeAreaView className="flex-1 bg-white items-center justify-center">
@@ -214,7 +189,8 @@ export default function AlertsScreen() {
     );
   }
 
-  const filteredAlerts = alerts.filter((a) => {
+  // Filter
+  const filteredAlerts = alerts.filter(a => {
     if (filter === "all") return true;
     if (filter === "general") return a.targetType === "all";
     if (filter === "course") return a.targetType === "course";
@@ -243,7 +219,7 @@ export default function AlertsScreen() {
           { key: "all", label: "הכל" },
           { key: "general", label: "כלליות" },
           { key: "course", label: "חוגים" },
-        ].map((tab) => {
+        ].map(tab => {
           const sel = filter === tab.key;
           return (
             <TouchableOpacity
@@ -280,120 +256,127 @@ export default function AlertsScreen() {
             </Text>
           </View>
         ) : (
-          <>
-            {filteredAlerts.map((alert) => {
-              const isExpanded = expandedAlerts[alert.id];
-              const needsTrunc = alert.message.length > 150;
-              const deleting = deletingAlerts[alert.id];
+          filteredAlerts.map(alert => {
+            const isExpanded = expandedAlerts[alert.id];
+            const needsTrunc = alert.message.length > 150;
+            const deleting = deletingAlerts[alert.id];
 
-              return (
-                <View
-                  key={alert.id}
-                  className="bg-primary rounded-3xl p-5 shadow-lg mb-6"
-                >
-                  {isAdmin && (
-                    <View className="flex-row justify-end mb-3 space-x-2">
-                      <TouchableOpacity
-                        onPress={() => handleEditAlert(alert)}
-                        disabled={deleting}
-                        className="bg-green-600 px-4 py-2 rounded-full"
-                      >
+            return (
+              <View
+                key={alert.id}
+                className="bg-primary rounded-3xl p-5 shadow-lg mb-6"
+              >
+                {isAdmin && (
+                  <View className="flex-row justify-end mb-3 space-x-2">
+                    <TouchableOpacity
+                      onPress={() => handleEditAlert(alert)}
+                      disabled={deleting}
+                      className="bg-green-600 px-4 py-2 rounded-full"
+                    >
+                      <Text className="text-white text-xl font-heebo-medium">
+                        עריכה
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteAlert(alert.id, alert.title)}
+                      disabled={deleting}
+                      className="bg-red-500 px-4 py-2 rounded-full"
+                    >
+                      {deleting ? (
+                        <ActivityIndicator color="white" />
+                      ) : (
                         <Text className="text-white text-xl font-heebo-medium">
-                          עריכה
+                          מחק
                         </Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() =>
-                          handleDeleteAlert(alert.id, alert.title)
-                        }
-                        disabled={deleting}
-                        className="bg-red-500 px-4 py-2 rounded-full"
-                      >
-                        {deleting ? (
-                          <ActivityIndicator color="white" />
-                        ) : (
-                          <Text className="text-white text-xl font-heebo-medium">
-                            מחק
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {alert.title?.trim() && (
+                  <Text className="text-white text-3xl font-heebo-bold mb-2 text-right">
+                    {alert.title}
+                  </Text>
+                )}
+
+                 <View className="mb-3">
+    {isExpanded ? (
+      // ─ Expanded: no truncation at all
+      <Text
+        className="text-white text-xl font-tahoma leading-relaxed text-right"
+      >
+        {alert.message}
+      </Text>
+    ) : (
+      // ─ Collapsed: always truncate to 4 lines
+      <Text
+        className="text-white text-xl font-tahoma leading-relaxed text-right"
+        numberOfLines={4}
+        ellipsizeMode="tail"
+      >
+        {alert.message}
+      </Text>
+    )}
+
+    {needsTrunc && (
+      <TouchableOpacity
+        onPress={() => toggleReadMore(alert.id)}
+        activeOpacity={0.7}
+        className="mt-4 w-full bg-white/20 py-3 rounded-lg items-center justify-center"
+      >
+        <Text className="text-base text-white font-heebo-bold">
+          {isExpanded ? "הצג פחות" : "קרא עוד"}
+        </Text>
+      </TouchableOpacity>
+    )}
+  </View>
+
+                <View className="flex-row justify-between items-center">
+                  <Text className="text-gray-300 text-2xl font-heebo-light">
+                    {alert.createdAt ? formatDate(alert.createdAt) : ""}
+                  </Text>
+                  {isAdmin && (
+                    <View className="flex-row space-x-2">
+                      {alert.notificationSent && (
+                        <View className="bg-green-600 px-2 py-1 rounded-full">
+                          <Text className="text-white text-xs font-heebo-medium">
+                            נשלח
                           </Text>
-                        )}
-                      </TouchableOpacity>
+                        </View>
+                      )}
+                      {alert.targetType && (
+                        <View className="bg-blue-500 px-2 py-1 rounded-full">
+                          <Text className="text-white text-xs font-heebo-medium">
+                            {alert.targetType === "all"
+                              ? "כולם"
+                              : "חוג ספציפי"}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   )}
-
-                  {alert.title?.trim() && (
-                    <Text className="text-white text-3xl font-heebo-bold mb-2 text-right">
-                      {alert.title}
-                    </Text>
-                  )}
-
-                  <View className="mb-3">
-                    <Text
-                      className="text-white text-xl font-tahoma leading-relaxed text-right"
-                      numberOfLines={isExpanded ? undefined : 4}
-                    >
-                      {alert.message}
-                    </Text>
-                    {needsTrunc && (
-                      <TouchableOpacity
-                        onPress={() => toggleReadMore(alert.id)}
-                        activeOpacity={0.7}
-                        className="mt-4 w-full bg-white/20 py-3 rounded-lg items-center justify-center"
-                      >
-                        <Text className="text-base text-white font-heebo-bold">
-                          {isExpanded ? "הצג פחות" : "קרא עוד"}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-
-                  <View className="flex-row justify-between items-center">
-                    <Text className="text-gray-300 text-2xl font-heebo-light">
-                      {alert.createdAt ? formatDate(alert.createdAt) : ""}
-                    </Text>
-                    {isAdmin && (
-                      <View className="flex-row space-x-2">
-                        {alert.notificationSent && (
-                          <View className="bg-green-600 px-2 py-1 rounded-full">
-                            <Text className="text-white text-xs font-heebo-medium">
-                              נשלח
-                            </Text>
-                          </View>
-                        )}
-                        {alert.targetType && (
-                          <View className="bg-blue-500 px-2 py-1 rounded-full">
-                            <Text className="text-white text-xs font-heebo-medium">
-                              {alert.targetType === "all"
-                                ? "כולם"
-                                : "חוג ספציפי"}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </View>
                 </View>
-              );
-            })}
-
-            {/* Load More Button */}
-            {!allDataLoaded && (
-              <View className="items-center my-4">
-                <TouchableOpacity
-                  onPress={handleLoadMore}
-                  disabled={loadingMore}
-                  className="bg-primary px-12 py-3 rounded-full shadow-lg"
-                >
-                  {loadingMore ? (
-                    <ActivityIndicator color="white" />
-                  ) : (
-                    <Text className="text-white text-lg font-heebo-bold">
-                      טען עוד
-                    </Text>
-                  )}
-                </TouchableOpacity>
               </View>
-            )}
-          </>
+            );
+          })
+        )}
+
+        {!allDataLoaded && (
+          <View className="items-center my-4">
+            <TouchableOpacity
+              onPress={handleLoadMore}
+              disabled={loadingMore}
+              className="bg-primary px-12 py-3 rounded-full shadow-lg"
+            >
+              {loadingMore ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text className="text-white text-lg font-heebo-bold">
+                  טען עוד
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
         )}
       </ScrollView>
     </SafeAreaView>

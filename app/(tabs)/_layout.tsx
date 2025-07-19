@@ -19,8 +19,7 @@ import { CommonActions, useNavigation } from '@react-navigation/native';
 import * as Notifications from "expo-notifications";
 import { StatusBar } from 'expo-status-bar';
 import { auth, db } from "../../FirebaseConfig";
-import { doc, setDoc } from "firebase/firestore";
-import { onAuthStateChanged } from "firebase/auth";
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 // --- End notification setup imports ---
 
 I18nManager.allowRTL(false);
@@ -51,11 +50,10 @@ async function registerForPush() {
   console.log("Push token:", token);
   const uid = auth.currentUser?.uid;
   if (uid) {
-    await setDoc(
-      doc(db, "fcmTokens", uid),
-      { userId: uid, token },
-      { merge: true }
-    );
+    await db.collection("fcmTokens").doc(uid).set(
+    { userId: uid, token },
+    { merge: true }
+);
   }
 }
 
@@ -63,11 +61,11 @@ export default function TabsLayout() {
   const router = useRouter();
   const { user: authUser, isGuest, setIsGuest } = useAuth();
 
-  const [user, setUser] = useState(authUser ?? null);
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (usr) => {
+const unsubscribe = auth.onAuthStateChanged((usr) => {
       if (usr) setUser(usr);
       setInitializing(false);
     });

@@ -17,9 +17,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
-import { doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { getStorage, ref, deleteObject } from 'firebase/storage'; // Import Storage functions
-import { db, auth } from '../../FirebaseConfig';
+// --- CORRECTED IMPORTS ---
+import { db, auth, storage } from '../../FirebaseConfig'; // Import native storage instance
 import { getUser } from '../utils/firestoreUtils';
 import { useAuth } from '../_layout';
 
@@ -27,7 +26,6 @@ interface UserData { id: string; role?: string; }
 interface PostData { title: string; content: string; images?: string[]; authorId: string; createdAt?: any; }
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const storage = getStorage(); // Initialize Firebase Storage
 
 export default function PostDetails() {
   const { isGuest } = useAuth();
@@ -58,8 +56,9 @@ export default function PostDetails() {
     (async () => {
       try {
         setLoading(true);
-        const snap = await getDoc(doc(db, 'posts', id));
-        if (!snap.exists()) {
+        // --- CORRECTED FIRESTORE SYNTAX ---
+        const snap = await db.collection('posts').doc(id).get();
+        if (!snap.exists) {
           Alert.alert('שגיאה', 'הפוסט לא נמצא');
           return router.back();
         }
@@ -85,22 +84,20 @@ export default function PostDetails() {
   const handleDelete = async () => {
     setDeleting(true);
     try {
-      // Step 1: Delete images from Firebase Storage if they exist
       if (postData?.images && postData.images.length > 0) {
-        // Create a list of deletion promises for all images
         const deletePromises = postData.images.map(imageUrl => {
-          const imageRef = ref(storage, imageUrl);
-          return deleteObject(imageRef);
+          // --- CORRECTED STORAGE SYNTAX ---
+          const imageRef = storage.refFromURL(imageUrl);
+          return imageRef.delete();
         });
-        // Wait for all images to be deleted
         await Promise.all(deletePromises);
       }
 
-      // Step 2: Delete the post document from Firestore
-      await deleteDoc(doc(db, 'posts', id));
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      await db.collection('posts').doc(id).delete();
 
       Alert.alert('נמחק', 'הפוסט נמחק בהצלחה.', [
-        { text: 'אישור', onPress: () => router.replace('/(tabs)') }
+        { text: 'אישור', onPress: () => router.replace('/(tabs)/gallery') } // Navigate to gallery after deletion
       ]);
 
     } catch (error) {
@@ -138,7 +135,6 @@ export default function PostDetails() {
 
   return (
     <>
-      {/* Full-screen swipeable images Modal */}
       <Modal visible={modalVisible} animationType="fade" onRequestClose={closeModal}>
         <View className="flex-1 bg-black">
           <TouchableOpacity onPress={closeModal} className="absolute top-12 right-6 z-10 p-2">
@@ -165,7 +161,6 @@ export default function PostDetails() {
       </Modal>
 
       <SafeAreaView className="flex-1 bg-white px-6" style={{direction: 'rtl'}}>
-        {/* Header */}
         <View className="pt-5 pb-3">
           <View className="flex-row justify-start mb-4">
             <TouchableOpacity onPress={() => router.back()}>
@@ -174,18 +169,15 @@ export default function PostDetails() {
           </View>
         </View>
 
-        {/* Title */}
         <Text className="text-3xl font-bold text-primary text-center mb-6">
           {postData.title}
         </Text>
 
-        {/* Content */}
         <Text className="text-xl text-black mb-6 text-start">
           {postData.content}
         </Text>
 
         <ScrollView className="pb-10">
-          {/* Edit & Delete Buttons */}
           {isAdmin && (
             <View className="flex-row justify-start space-x-2 mb-4 gap-2">
               <TouchableOpacity
@@ -206,7 +198,6 @@ export default function PostDetails() {
             </View>
           )}
 
-          {/* Thumbnails */}
           {postData.images?.map((uri, idx) => (
             <TouchableOpacity key={idx} onPress={() => openModal(idx)} className="mb-4">
               <Image

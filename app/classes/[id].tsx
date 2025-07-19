@@ -1,4 +1,3 @@
-// app/classes/[id].tsx
 import React, { useEffect, useState, useCallback } from 'react';
 import { 
   View, 
@@ -16,11 +15,12 @@ import {
   Platform,
 } from 'react-native';
 import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
-import { doc, getDoc, collection, addDoc, query, where, getDocs, serverTimestamp, writeBatch, deleteDoc } from 'firebase/firestore';
+// --- CORRECTED IMPORTS ---
 import { db, auth } from '../../FirebaseConfig';
+import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import { getUser, UserData } from '../utils/firestoreUtils';
 import { useAuth } from '../_layout';
-
+ import { FieldValue, Timestamp, GeoPoint } from '../../FirebaseConfig';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface CourseData {
@@ -31,12 +31,12 @@ interface CourseData {
   maxCapacity: number;
   imageUrl?: string[];
   payment?: string;
-  createdAt?: any;
+  createdAt?: FirebaseFirestoreTypes.Timestamp; // Use correct type
   createdBy?: string;
 }
 
 const ClassDetails = () => {
-  const { isGuest, setIsGuest } = useAuth();
+  const { isGuest } = useAuth();
   const { id } = useLocalSearchParams();
   const [courseData, setCourseData] = useState<CourseData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -49,106 +49,90 @@ const ClassDetails = () => {
   const [userRegistrationId, setUserRegistrationId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   
-  // Registration form states
   const [showRegistrationModal, setShowRegistrationModal] = useState(false);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
 
-
-    const fetchCourseData = useCallback(async () => {
-      try {
-        if (!id) return;
-        // Get course details
-        const courseRef = doc(db, "courses", id as string);
-        const courseSnap = await getDoc(courseRef);
+  const fetchCourseData = useCallback(async () => {
+    try {
+      if (!id) return;
+      
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      const courseRef = db.collection("courses").doc(id as string);
+      const courseSnap = await courseRef.get();
+      
+      if (courseSnap.exists()) {
+        setCourseData(courseSnap.data() as CourseData);
         
-        if (courseSnap.exists()) {
-          setCourseData(courseSnap.data() as CourseData);
-          
-          // Skip user-specific checks for guest users
-          if (isGuest) {
-            setIsAdmin(false);
-            setIsRegistered(false);
-          } else {
-            // Check current user
-            const user = auth.currentUser;
-            if (user) {
-              // Check if user is admin
-              const userData = await getUser(user.uid) as UserData;
-              setIsAdmin(userData?.role === "admin");
+        if (isGuest) {
+          setIsAdmin(false);
+          setIsRegistered(false);
+        } else {
+          const user = auth.currentUser;
+          if (user) {
+            const userData = await getUser(user.uid) as UserData;
+            setIsAdmin(userData?.role === "admin");
+            
+            if (userData) {
+              setFirstName(userData.firstName || '');
+              setLastName(userData.lastName || '');
+            }
+            
+            if (userData?.role !== "admin") {
+              const registrationsRef = db.collection("Registrations");
+              const q = registrationsRef
+                .where("userId", "==", user.uid)
+                .where("courseId", "==", id);
+              const querySnapshot = await q.get();
+              setIsRegistered(!querySnapshot.empty);
               
-              // Pre-fill user data if available
-              if (userData) {
-                setFirstName(userData.firstName || '');
-                setLastName(userData.lastName || '');
-              }
-              
-              // Check if current user is registered (only for non-admin users)
-              if (userData?.role !== "admin") {
-                const registrationsRef = collection(db, "Registrations");
-                const q = query(
-                  registrationsRef, 
-                  where("userId", "==", user.uid),
-                  where("courseId", "==", id)
-                );
-                const querySnapshot = await getDocs(q);
-                setIsRegistered(!querySnapshot.empty);
-                
-                // Store the registration document ID if user is registered
-                if (!querySnapshot.empty) {
-                  setUserRegistrationId(querySnapshot.docs[0].id);
-                }
+              if (!querySnapshot.empty) {
+                setUserRegistrationId(querySnapshot.docs[0].id);
               }
             }
           }
-          
-          // Get total registrations count
-          const registrationsCountQuery = query(
-            collection(db, "Registrations"),
-            where("courseId", "==", id)
-          );
-          const registrationsSnapshot = await getDocs(registrationsCountQuery);
-          setRegistrationsCount(registrationsSnapshot.size);
-        } else {
-          Alert.alert("שגיאה", "החוג לא נמצא");
-          router.back();
         }
-      } catch (error) {
-        console.error("Error fetching class data:", error);
-        Alert.alert("שגיאה", "אירעה שגיאה בטעינת פרטי החוג");
-      } finally {
-        setLoading(false);
+        
+        const registrationsCountQuery = db.collection("Registrations").where("courseId", "==", id);
+        const registrationsSnapshot = await registrationsCountQuery.get();
+        setRegistrationsCount(registrationsSnapshot.size);
+      } else {
+        Alert.alert("שגיאה", "החוג לא נמצא");
+        router.back();
       }
-    }, [id, isGuest]);
+    } catch (error) {
+      console.error("Error fetching class data:", error);
+      Alert.alert("שגיאה", "אירעה שגיאה בטעינת פרטי החוג");
+    } finally {
+      setLoading(false);
+    }
+  }, [id, isGuest]);
 
-      useFocusEffect(
-      useCallback(() => {
-        fetchCourseData();
-      }, [fetchCourseData])
-    );
+  useFocusEffect(
+    useCallback(() => {
+      fetchCourseData();
+    }, [fetchCourseData])
+  );
 
   const handleDeleteClass = async () => {
     try {
       setLoading(true);
       
-      // Delete all registrations for this class
-      const registrationsRef = collection(db, "Registrations");
-      const q = query(registrationsRef, where("courseId", "==", id));
-      const querySnapshot = await getDocs(q);
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      const registrationsRef = db.collection("Registrations");
+      const q = registrationsRef.where("courseId", "==", id);
+      const querySnapshot = await q.get();
       
-      const batch = writeBatch(db);
+      const batch = db.batch();
       
-      // Add all registration documents to batch for deletion
       querySnapshot.docs.forEach(doc => {
         batch.delete(doc.ref);
       });
       
-      // Delete the class document
-      const courseRef = doc(db, "courses", id as string);
+      const courseRef = db.collection("courses").doc(id as string);
       batch.delete(courseRef);
       
-      // Commit the batch
       await batch.commit();
       
       Alert.alert("הצלחה", "החוג נמחק בהצלחה", [
@@ -170,25 +154,22 @@ const ClassDetails = () => {
     }
     
     if (isGuest) {
-  Alert.alert(
-    "דרושה הרשמה",
-    "עליך להירשם כדי להצטרף לחוג. האם ברצונך לעבור למסך ההתחברות?",
-    [
-      {
-        text: "לא תודה",
-        style: "cancel",
-      },
-      {
-        text: "כן, עבור להתחברות",
-        onPress: () => {
-          router.back(); // Go back to the previous screen
-          router.replace('/login'); 
-        },
-      },
-    ]
-  );
-  return;
-}
+      Alert.alert(
+        "דרושה הרשמה",
+        "עליך להירשם כדי להצטרף לחוג. האם ברצונך לעבור למסך ההתחברות?",
+        [
+          { text: "לא תודה", style: "cancel" },
+          {
+            text: "כן, עבור להתחברות",
+            onPress: () => {
+              router.back();
+              router.replace('/login'); 
+            },
+          },
+        ]
+      );
+      return;
+    }
     
     if (isRegistered) {
       Alert.alert("הודעה", "כבר השארת פרטים לחוג זה");
@@ -200,18 +181,15 @@ const ClassDetails = () => {
       return;
     }
     
-    // Show registration form modal
     setShowRegistrationModal(true);
   };
 
   const handleRegistrationSubmit = async () => {
-    // Validate form fields
     if (!firstName.trim() || !lastName.trim() || !phoneNumber.trim()) {
       Alert.alert("שגיאה", "כל השדות הם שדות חובה");
       return;
     }
     
-    // Validate phone number (basic validation for Israeli phone numbers)
     const phoneRegex = /^0[0-9]{8,9}$/;
     if (!phoneRegex.test(phoneNumber)) {
       Alert.alert("שגיאה", "מספר טלפון לא תקין");
@@ -229,15 +207,15 @@ const ClassDetails = () => {
         return;
       }
       
-      // Add registration to Firestore with contact information
-      const docRef = await addDoc(collection(db, "Registrations"), {
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      const docRef = await db.collection("Registrations").add({
         userId: user.uid,
         courseId: id,
         firstName: firstName.trim(),
         lastName: lastName.trim(),
         phoneNumber: phoneNumber.trim(),
         email: user.email || '',
-        registrationDate: serverTimestamp(),
+        registrationDate: FieldValue.serverTimestamp(),
         status: "active"
       });
       
@@ -256,12 +234,9 @@ const ClassDetails = () => {
   const handleCancelRegistration = async () => {
     Alert.alert(
       "מחק הפרטים",
-      "האם אתה בטוח שברצונך למחק את הפרטים  לחוג זה?",
+      "האם אתה בטוח שברצונך למחק את הפרטים לחוג זה?",
       [
-        {
-          text: "לא",
-          style: "cancel"
-        },
+        { text: "לא", style: "cancel" },
         {
           text: "כן, מחק פרטים",
           style: "destructive",
@@ -281,10 +256,9 @@ const ClassDetails = () => {
                 return;
               }
               
-              // Delete the registration document
-              await deleteDoc(doc(db, "Registrations", userRegistrationId));
+              // --- CORRECTED FIRESTORE SYNTAX ---
+              await db.collection("Registrations").doc(userRegistrationId).delete();
               
-              // Update local state
               setIsRegistered(false);
               setUserRegistrationId(null);
               setRegistrationsCount(prev => Math.max(0, prev - 1));
@@ -319,7 +293,6 @@ const ClassDetails = () => {
 
   return (
     <>
-      {/* Registration Form Modal */}
       <Modal
         visible={showRegistrationModal}
         animationType="slide"
@@ -380,7 +353,6 @@ const ClassDetails = () => {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Full-screen image modal */}
       <Modal
         visible={modalVisible}
         animationType="fade"
@@ -423,7 +395,6 @@ const ClassDetails = () => {
             <Text style={styles.headerTitle}>{courseData?.name}</Text>
           </View>
 
-          {/* Image gallery */}
           {courseData?.imageUrl && courseData.imageUrl.length > 0 && (
             <ScrollView 
               horizontal 
@@ -447,33 +418,26 @@ const ClassDetails = () => {
           )}
           
           <View style={styles.infoContainer}>
-              {/* The description can have its own style */}
-              <Text style={styles.descriptionText}>{courseData?.description}</Text>
-
-              {/* The details are now single lines */}
+            <Text style={styles.descriptionText}>{courseData?.description}</Text>
+            <Text style={styles.infoLine}>
+              <Text style={styles.infoLineLabel}>מיקום: </Text>{courseData?.location}
+            </Text>
+            <Text style={styles.infoLine}>
+              <Text style={styles.infoLineLabel}>ימים: </Text>{courseData?.schedule}
+            </Text>
+            {courseData?.payment && (
               <Text style={styles.infoLine}>
-                <Text style={styles.infoLineLabel}>מיקום: </Text>{courseData?.location}
+                <Text style={styles.infoLineLabel}>תשלום: </Text>{courseData.payment}
               </Text>
-
+            )}
+            {isAdmin && (
               <Text style={styles.infoLine}>
-                <Text style={styles.infoLineLabel}>ימים: </Text>{courseData?.schedule}
+                <Text style={styles.infoLineLabel}>מקומות: </Text>
+                {registrationsCount}/{courseData?.maxCapacity}
               </Text>
+            )}
+          </View>  
 
-              {courseData?.payment && (
-                <Text style={styles.infoLine}>
-                  <Text style={styles.infoLineLabel}>תשלום: </Text>{courseData.payment}
-                </Text>
-              )}
-
-              {isAdmin && (
-                <Text style={styles.infoLine}>
-                  <Text style={styles.infoLineLabel}>מקומות: </Text>
-                  {registrationsCount}/{courseData?.maxCapacity}
-                </Text>
-              )}
-            </View>  
-
-          {/* Only show registration button for regular users, not for admins */}
           {!isAdmin && (
             <>
               <TouchableOpacity 
@@ -492,7 +456,6 @@ const ClassDetails = () => {
                 </Text>
               </TouchableOpacity>
               
-              {/* Cancel registration button - only show if user is registered */}
               {isRegistered && (
                 <TouchableOpacity 
                   style={styles.cancelButton} 
@@ -507,7 +470,6 @@ const ClassDetails = () => {
             </>
           )}
           
-          {/* For admin users, show admin buttons */}
           {isAdmin && (
             <>
               <TouchableOpacity 
@@ -522,7 +484,6 @@ const ClassDetails = () => {
                 </Text>
               </TouchableOpacity>
               
-              {/* Edit class button */}
               <TouchableOpacity 
                 style={styles.editButton} 
                 onPress={() => router.push({
@@ -544,7 +505,6 @@ const ClassDetails = () => {
                 </Text>
               </TouchableOpacity>
               
-              {/* Delete class button */}
               <TouchableOpacity 
                 style={styles.deleteButton} 
                 onPress={() => {
@@ -552,10 +512,7 @@ const ClassDetails = () => {
                     "מחיקת חוג",
                     "האם אתה בטוח שברצונך למחוק חוג זה? פעולה זו אינה ניתנת לביטול ותמחק את כל ההרשמות הקשורות.",
                     [
-                      {
-                        text: "ביטול",
-                        style: "cancel"
-                      },
+                      { text: "ביטול", style: "cancel" },
                       { 
                         text: "מחק", 
                         style: "destructive",
@@ -577,6 +534,7 @@ const ClassDetails = () => {
   );
 };
 
+// Styles are kept separate for clarity
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -661,22 +619,19 @@ const styles = StyleSheet.create({
   color: '#1A4782',
   textAlign: 'right',
   lineHeight: 24,
-  marginBottom: 16, // Space between description and details
+  marginBottom: 16,
   },
-
   infoLine: {
     fontSize: 20,
     fontFamily: 'Tahoma',
     color: '#1F2937',
     textAlign: 'right',
-    marginBottom: 8, // Space between each line
+    marginBottom: 8,
   },
-
   infoLineLabel: {
-    fontFamily: 'Tahoma', // Make the label part bold
-    color: '#1A4782',       // Use the primary color
+    fontFamily: 'Tahoma',
+    color: '#1A4782',
   },
-
   registerButton: {
     backgroundColor: '#1A4782',
     borderRadius: 30,

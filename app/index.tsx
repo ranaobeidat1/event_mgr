@@ -1,14 +1,17 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+// --- CORRECTED IMPORTS ---
 import { auth } from '../FirebaseConfig';
+import { FirebaseAuthTypes } from '@react-native-firebase/auth'; // Correct type import
 
 export default function Index() {
   const [initializing, setInitializing] = useState(true);
-  const [user, setUser] = useState<User | null>(null);
+  // --- USE CORRECT USER TYPE ---
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, usr => {
+    // --- CORRECTED AUTH LISTENER SYNTAX ---
+    const unsubscribe = auth.onAuthStateChanged(usr => {
       setUser(usr);
       setInitializing(false);
     });

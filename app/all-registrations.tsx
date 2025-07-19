@@ -9,14 +9,13 @@ import {
   Alert,
   ActivityIndicator,
   FlatList,
-  ScrollView,
   TextInput
 } from 'react-native';
 import { router, useFocusEffect, Stack } from 'expo-router';
-import { collection, getDocs } from 'firebase/firestore';
+// --- CORRECTED IMPORTS ---
 import { db, auth } from '../FirebaseConfig';
 import { getUser, UserData } from './utils/firestoreUtils';
- 
+
 interface RegistrationData {
   id: string;
   userId: string;
@@ -42,7 +41,6 @@ const AllRegistrationsList = () => {
   const [filteredRegistrations, setFilteredRegistrations] = useState<RegistrationData[]>([]);
 
   const fetchRegistrations = useCallback(async () => {
-    // Verify current user is admin
     const user = auth.currentUser;
     if (!user) {
       Alert.alert('שגיאה', 'יש להתחבר מחדש');
@@ -61,25 +59,25 @@ const AllRegistrationsList = () => {
       setIsAdmin(true);
       setLoading(true);
       
-      // Fetch all registrations
-      const registrationsRef = collection(db, 'Registrations');
-      const querySnapshot = await getDocs(registrationsRef);
+      // --- THIS IS THE FIX ---
+      // Use the correct native syntax to fetch the collection
+      const registrationsRef = db.collection('Registrations');
+      const querySnapshot = await registrationsRef.get();
+      // --- END FIX ---
 
       const registrationsData: RegistrationData[] = [];
       
-      // Process each registration
       for (const doc of querySnapshot.docs) {
         const registration = {
           id: doc.id,
           ...doc.data()
         } as RegistrationData;
         
-        
         registrationsData.push(registration);
       }
 
       setRegistrations(registrationsData);
-      setFilteredRegistrations(registrationsData); // Initialize filtered list
+      setFilteredRegistrations(registrationsData);
     } catch (error) {
       console.error('Error fetching registrations:', error);
       Alert.alert('שגיאה', 'אירעה שגיאה בטעינת הנרשמים');
@@ -88,7 +86,6 @@ const AllRegistrationsList = () => {
     }
   }, []);
 
-  // Filter registrations based on search query
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredRegistrations(registrations);
@@ -103,7 +100,6 @@ const AllRegistrationsList = () => {
     }
   }, [searchQuery, registrations]);
 
-  // useFocusEffect runs every time the screen comes into focus, ensuring data is fresh.
   useFocusEffect(
     useCallback(() => {
       fetchRegistrations();
@@ -121,7 +117,6 @@ const AllRegistrationsList = () => {
     );
   };
 
-  // Don't show anything until we've verified the user is an admin
   if (!isAdmin && loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -137,22 +132,20 @@ const AllRegistrationsList = () => {
     <>
     <Stack.Screen options={{ headerShown: false }} />
     <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
-      {/* Header */}
       <View className="px-6 pt-5 pb-3">
-              <View className="flex-row justify-start mb-4">
-                <TouchableOpacity onPress={() => router.back()}>
-                  <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
-                </TouchableOpacity>
-              </View>
-      
-            <View className="items-center">
-              <Text className="text-3xl font-bold text-primary">
-                רשימת כל הנרשמים
-              </Text>
+            <View className="flex-row justify-start mb-4">
+              <TouchableOpacity onPress={() => router.back()}>
+                <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
+              </TouchableOpacity>
             </View>
+      
+          <View className="items-center">
+            <Text className="text-3xl font-bold text-primary">
+              רשימת כל הנרשמים
+            </Text>
           </View>
+        </View>
 
-        {/* Search Bar */}
       <View className="px-6 mb-4">
         <TextInput
           className="bg-gray-100 rounded-full px-5 py-3 text-lg text-right"
@@ -171,7 +164,6 @@ const AllRegistrationsList = () => {
         )}
       </View>
 
-      {/* Search Results Counter */}
       {searchQuery.trim() !== "" && (
         <View className="px-6 mb-2">
           <Text className="text-sm text-gray-600 text-right">
@@ -188,13 +180,11 @@ const AllRegistrationsList = () => {
         </View>
       ) : (
         <View style={styles.listContainer}>
-          {/* Header row */}
           <View style={styles.tableHeader}>
             <Text style={[styles.headerCell, styles.nameCell]}>שם</Text>
             <Text style={[styles.headerCell, styles.emailCell]}>אימייל</Text>
           </View>
           
-          {/* Registrations rows using FlatList */}
           <FlatList
             data={filteredRegistrations}
             renderItem={renderItem}

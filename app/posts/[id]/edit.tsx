@@ -17,12 +17,8 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage'; // Import deleteObject
-import { db } from '../../../FirebaseConfig';
-
-// Initialize Firebase Storage
-const storage = getStorage();
+// --- CORRECTED IMPORTS ---
+import { db, storage } from '../../../FirebaseConfig'; // Correctly import native instances
 
 interface PostData {
   title: string;
@@ -38,21 +34,20 @@ export default function EditPost() {
     images: [],
   });
   
-  // State to track images marked for deletion
   const [imagesToDelete, setImagesToDelete] = useState<string[]>([]);
   
   const [loading, setLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Fetch the existing post
   useEffect(() => {
     (async () => {
       if (!id) return;
       try {
-        const docRef = doc(db, 'posts', id);
-        const docSnap = await getDoc(docRef);
-        if (!docSnap.exists()) {
+        // --- CORRECTED FIRESTORE SYNTAX ---
+        const docRef = db.collection('posts').doc(id);
+        const docSnap = await docRef.get();
+        if (!docSnap.exists) {
           throw new Error('לא נמצא פוסט');
         }
         setPost(docSnap.data() as PostData);
@@ -66,7 +61,6 @@ export default function EditPost() {
     })();
   }, [id]);
 
-  // Pick new images from the library
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -88,57 +82,54 @@ export default function EditPost() {
     }
   };
 
-  // Remove an image and mark it for deletion if it's from storage
   const removeImage = (index: number) => {
     const allImages = post.images ?? [];
     const imageToRemove = allImages[index];
 
-    // If the image has a firebase URL, add it to our deletion queue
     if (imageToRemove && imageToRemove.startsWith('https://firebasestorage')) {
       setImagesToDelete(prev => [...prev, imageToRemove]);
     }
     
-    // Then, remove it from the visible list in the UI
     setPost((p) => ({
       ...p,
       images: allImages.filter((_, i) => i !== index),
     }));
   };
   
-  // Helper function to upload a single image
   const uploadImage = async (uri: string) => {
     const response = await fetch(uri);
     const blob = await response.blob();
-    const storageRef = ref(storage, `posts/${id}/${Date.now()}`);
-    await uploadBytes(storageRef, blob);
-    return await getDownloadURL(storageRef);
+    // --- CORRECTED STORAGE SYNTAX ---
+    const storageRef = storage.ref(`posts/${id}/${Date.now()}`);
+    await storageRef.put(blob);
+    return await storageRef.getDownloadURL();
   };
 
-  // Helper function to delete an image from Firebase Storage
   const deleteImageFromStorage = async (imageUrl: string) => {
     try {
-      const imageRef = ref(storage, imageUrl);
-      await deleteObject(imageRef);
+      // --- CORRECTED STORAGE SYNTAX ---
+      const imageRef = storage.refFromURL(imageUrl);
+      await imageRef.delete();
     } catch (error) {
       console.error("Failed to delete image from storage:", error);
-      // Don't block the user, just log the error
     }
   };
-const handleRemoveImage = (index: number) => {
-  Alert.alert(
-    "מחיקת תמונה",
-    "האם אתה בטוח שברצונך למחוק את התמונה?",
-    [
-      { text: "ביטול", style: "cancel" },
-      {
-        text: "מחק",
-        onPress: () => removeImage(index), // This calls the removeImage function in your edit screen
-        style: "destructive",
-      },
-    ]
-  );
-};
-  // Save changes to Firebase
+
+  const handleRemoveImage = (index: number) => {
+    Alert.alert(
+      "מחיקת תמונה",
+      "האם אתה בטוח שברצונך למחוק את התמונה?",
+      [
+        { text: "ביטול", style: "cancel" },
+        {
+          text: "מחק",
+          onPress: () => removeImage(index),
+          style: "destructive",
+        },
+      ]
+    );
+  };
+
   const handleSave = async () => {
     if (
       post.title.trim() === '' &&
@@ -162,14 +153,14 @@ const handleRemoveImage = (index: number) => {
       
       const finalImageUrls = [...existingImageUrls, ...newImageUrls];
 
-      const postRef = doc(db, 'posts', id);
-      await updateDoc(postRef, {
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      const postRef = db.collection('posts').doc(id);
+      await postRef.update({
         title: post.title,
         content: post.content,
         images: finalImageUrls,
       });
 
-      // After successfully updating the post, delete the removed images from storage
       if (imagesToDelete.length > 0) {
         await Promise.all(imagesToDelete.map(url => deleteImageFromStorage(url)));
       }
@@ -198,7 +189,6 @@ const handleRemoveImage = (index: number) => {
 
   return (
     <SafeAreaView className="flex-1 bg-white" >
-      {/* Header */}
       <View className="px-6 pt-5 pb-3">
         <View className="flex-row justify-start mb-4">
           <TouchableOpacity onPress={() => router.back()} disabled={isBusy}>
@@ -236,46 +226,44 @@ const handleRemoveImage = (index: number) => {
           textAlign="right"
         />
 
-<Text className="mb-2 text-start text-xl">תמונות:</Text>
-{post.images && post.images.length > 0 ? (
-  // This is your existing code for when there ARE images
-  <ScrollView
-    horizontal
-    className="h-40 mb-4"
-    showsHorizontalScrollIndicator={false}
-    contentContainerStyle={{
-      alignItems: 'center',
-      paddingHorizontal: 4,
-    }}
-  >
-    {post.images.map((uri, index) => (
-      <View key={index} className="relative mr-4">
-        <Image
-          source={{ uri }}
-          className="w-36 h-36 rounded-lg"
-          resizeMode="cover"
-        />
-        <TouchableOpacity
-          onPress={() => handleRemoveImage(index)} // Assuming you have this handler
-          className="absolute top-1 right-1 bg-red-600 p-1 rounded-full"
-          disabled={isBusy}
-        >
-          <Text className="text-white text-xs">×</Text>
-        </TouchableOpacity>
-      </View>
-    ))}
-  </ScrollView>
-) : (
-  // This is the NEW code for when there are NO images
-  <View className="h-40 mb-4 flex items-center justify-center bg-gray-100 rounded-lg border border-dashed border-gray-300">
-    <Text className="text-gray-500 font-heebo-medium text-base">
-      אין תמונות בפוסט זה
-    </Text>
-    <Text className="text-gray-400 font-heebo-regular text-sm mt-1">
-      ניתן להוסיף תמונות באמצעות הכפתור למטה
-    </Text>
-  </View>
-)}
+        <Text className="mb-2 text-start text-xl">תמונות:</Text>
+        {post.images && post.images.length > 0 ? (
+          <ScrollView
+            horizontal
+            className="h-40 mb-4"
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{
+              alignItems: 'center',
+              paddingHorizontal: 4,
+            }}
+          >
+            {post.images.map((uri, index) => (
+              <View key={index} className="relative mr-4">
+                <Image
+                  source={{ uri }}
+                  className="w-36 h-36 rounded-lg"
+                  resizeMode="cover"
+                />
+                <TouchableOpacity
+                  onPress={() => handleRemoveImage(index)}
+                  className="absolute top-1 right-1 bg-red-600 p-1 rounded-full"
+                  disabled={isBusy}
+                >
+                  <Text className="text-white text-xs">×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+          </ScrollView>
+        ) : (
+          <View className="h-40 mb-4 flex items-center justify-center bg-gray-100 rounded-lg border border-dashed border-gray-300">
+            <Text className="text-gray-500 font-heebo-medium text-base">
+              אין תמונות בפוסט זה
+            </Text>
+            <Text className="text-gray-400 font-heebo-regular text-sm mt-1">
+              ניתן להוסיף תמונות באמצעות הכפתור למטה
+            </Text>
+          </View>
+        )}
 
         <TouchableOpacity
           onPress={pickImages}

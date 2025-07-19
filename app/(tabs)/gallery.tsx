@@ -9,16 +9,8 @@ import {
   Dimensions,
   ActivityIndicator,
 } from "react-native";
-import { router } from "expo-router";
-import {
-  collection,
-  query,
-  orderBy,
-  getDocs,
-  limit,
-  startAfter,
-  DocumentData,
-} from "firebase/firestore";
+import { router, useFocusEffect } from "expo-router";
+import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import { db, auth } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
 import { useAuth } from "../_layout";
@@ -30,7 +22,7 @@ interface Post {
   title?: string;
   content?: string;
   images?: string[];
-  createdAt?: any;
+  createdAt?: FirebaseFirestoreTypes.Timestamp;
 }
 
 // ========================================================================
@@ -208,7 +200,6 @@ const PostItem = ({ item }: { item: Post }) => {
   return null;
 };
 
-// Define how many posts to load per page
 const POSTS_PER_PAGE = 5;
 
 export default function PostsScreen() {
@@ -216,42 +207,45 @@ export default function PostsScreen() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // --- New state for pagination and loading ---
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [lastVisible, setLastVisible] = useState<DocumentData | null>(null);
+  const [lastVisible, setLastVisible] = useState<FirebaseFirestoreTypes.DocumentData | null>(null);
   const [allDataLoaded, setAllDataLoaded] = useState(false);
 
-  // --- Replaces your old useEffect fetching logic ---
-  useEffect(() => {
-    const fetchInitialPosts = async () => {
+  // Using useFocusEffect to re-fetch when the screen is focused
+  useFocusEffect(
+    useCallback(() => {
       setLoading(true);
-      try {
-        const firstBatchQuery = query(
-          collection(db, "posts"),
-          orderBy("createdAt", "desc"),
-          limit(POSTS_PER_PAGE)
-        );
-        const docSnapshots = await getDocs(firstBatchQuery);
-        const newPosts = docSnapshots.docs.map((doc) => ({
-          id: doc.id,
-          ...(doc.data() as Omit<Post, "id">),
-        }));
+      const query = db
+        .collection("posts")
+        .orderBy("createdAt", "desc")
+        .limit(POSTS_PER_PAGE);
 
-        const lastDoc = docSnapshots.docs[docSnapshots.docs.length - 1];
-        setLastVisible(lastDoc);
-        setPosts(newPosts);
+      const unsubscribe = query.onSnapshot(
+        (snapshot) => {
+          const newPosts = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...(doc.data() as Omit<Post, "id">),
+          }));
 
-        if (docSnapshots.docs.length < POSTS_PER_PAGE) {
-          setAllDataLoaded(true);
+          const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+          setPosts(newPosts);
+          setLastVisible(lastDoc);
+          setAllDataLoaded(snapshot.docs.length < POSTS_PER_PAGE);
+          setLoading(false);
+        },
+        (error) => {
+          console.error(error);
+          setLoading(false);
         }
-      } catch (e) { console.error(e) }
-      finally { setLoading(false) }
-    };
+      );
 
-    fetchInitialPosts();
+      // Unsubscribe from the listener when the component is unmounted or loses focus
+      return () => unsubscribe();
+    }, [])
+  );
 
-    // Admin check logic remains the same
+  useEffect(() => {
     if (!isGuest) {
       (async () => {
         const user = auth.currentUser;
@@ -265,20 +259,20 @@ export default function PostsScreen() {
     }
   }, [isGuest]);
 
-  // --- Function to fetch the next page ---
+
   const handleLoadMore = async () => {
     if (loadingMore || allDataLoaded || !lastVisible) return;
 
     setLoadingMore(true);
     try {
-      const nextBatchQuery = query(
-        collection(db, "posts"),
-        orderBy("createdAt", "desc"),
-        startAfter(lastVisible),
-        limit(POSTS_PER_PAGE)
-      );
+      const nextBatchQuery = db
+        .collection("posts")
+        .orderBy("createdAt", "desc")
+        .startAfter(lastVisible)
+        .limit(POSTS_PER_PAGE);
 
-      const docSnapshots = await getDocs(nextBatchQuery);
+      const docSnapshots = await nextBatchQuery.get();
+
       if (docSnapshots.empty) {
         setAllDataLoaded(true);
         return;
@@ -296,8 +290,11 @@ export default function PostsScreen() {
       if (docSnapshots.docs.length < POSTS_PER_PAGE) {
         setAllDataLoaded(true);
       }
-    } catch (e) { console.error(e) }
-    finally { setLoadingMore(false) }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const ListEmptyComponent = () => (
@@ -308,10 +305,9 @@ export default function PostsScreen() {
     </View>
   );
 
-  // --- Component for the "Load More" button ---
   const renderFooter = () => {
     if (allDataLoaded) return null;
-    if (!loading && posts.length === 0) return null; // Don't show button if list is empty
+    if (!loading && posts.length === 0) return null;
 
     return (
       <View className="items-center my-8">

@@ -5,14 +5,15 @@ import {
   Text,
   StyleSheet,
   SafeAreaView,
-  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  FlatList
+  FlatList,
+  TextInput
 } from 'react-native';
-import { useLocalSearchParams, router, useFocusEffect } from 'expo-router';
-import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
+// --- THIS IS THE FIX ---
+// Added useLocalSearchParams to the import from expo-router
+import { router, useFocusEffect, Stack, useLocalSearchParams } from 'expo-router';
 import { db, auth } from '../FirebaseConfig';
 import { getUser, UserData } from './utils/firestoreUtils';
 
@@ -38,74 +39,85 @@ const RegistrationsList = () => {
   const [registrations, setRegistrations] = useState<RegistrationData[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredRegistrations, setFilteredRegistrations] = useState<RegistrationData[]>([]);
 
+  const fetchRegistrations = useCallback(async () => {
+    const user = auth.currentUser;
+    if (!user) {
+      Alert.alert('שגיאה', 'יש להתחבר מחדש');
+      router.replace('/login');
+      return;
+    }
 
-    const fetchRegistrations = useCallback(async () => {
-      // Verify current user is admin
-      const user = auth.currentUser;
-      if (!user) {
-        Alert.alert('שגיאה', 'יש להתחבר מחדש');
-        router.replace('/login');
+    try {
+      const userData = await getUser(user.uid) as UserData | null;
+      if (userData?.role !== 'admin') {
+        Alert.alert('גישה נדחתה', 'רק מנהלים רשאים לצפות בדף זה');
+        router.back();
         return;
       }
 
+      setIsAdmin(true);
+      setLoading(true);
       
-        const userData = await getUser(user.uid) as UserData | null;
-        if (userData?.role !== 'admin') {
-          Alert.alert('גישה נדחתה', 'רק מנהלים רשאים לצפות בדף זה');
-          router.back();
-          return;
-        }
+      const registrationsRef = db.collection('Registrations');
+      const q = registrationsRef.where('courseId', '==', courseId);
+      const querySnapshot = await q.get();
 
-        setLoading(true);
-        try {
-        // Fetch registrations for this course
-        const registrationsRef = collection(db, 'Registrations');
-        const q = query(registrationsRef, where('courseId', '==', courseId));
-        const querySnapshot = await getDocs(q);
-
-        const registrationsData: RegistrationData[] = [];
+      const registrationsData: RegistrationData[] = [];
+      
+      for (const doc of querySnapshot.docs) {
+        const registration = {
+          id: doc.id,
+          ...doc.data()
+        } as RegistrationData;
         
-        // Process each registration
-        for (const doc of querySnapshot.docs) {
-          const registration = {
-            id: doc.id,
-            ...doc.data()
-          } as RegistrationData;
-          
-          // If the registration doesn't have firstName/lastName/phoneNumber stored directly,
-          // try to get it from the user's profile (for backward compatibility)
-          if (!registration.firstName || !registration.lastName) {
-            if (registration.userId) {
-              const userDetails = await getUser(registration.userId) as UserData | null;
-              registration.userData = {
-                firstName: userDetails?.firstName || '',
-                lastName: userDetails?.lastName || '',
-                email: userDetails?.email || ''
-              };
-            }
+        if (!registration.firstName || !registration.lastName) {
+          if (registration.userId) {
+            const userDetails = await getUser(registration.userId) as UserData | null;
+            registration.userData = {
+              firstName: userDetails?.firstName || '',
+              lastName: userDetails?.lastName || '',
+              email: userDetails?.email || ''
+            };
           }
-          
-          registrationsData.push(registration);
         }
-
-        setRegistrations(registrationsData);
-      } catch (error) {
-        console.error('Error fetching registrations:', error);
-        Alert.alert('שגיאה', 'אירעה שגיאה בטעינת הנרשמים');
-      } finally {
-        setLoading(false);
+        
+        registrationsData.push(registration);
       }
-    }, [courseId]);
 
-    // useFocusEffect runs every time the screen comes into focus, ensuring data is fresh.
-    useFocusEffect(
-      useCallback(() => {
-        fetchRegistrations();
-      }, [fetchRegistrations])
-    );
+      setRegistrations(registrationsData);
+      setFilteredRegistrations(registrationsData);
+    } catch (error) {
+      console.error('Error fetching registrations:', error);
+      Alert.alert('שגיאה', 'אירעה שגיאה בטעינת הנרשמים');
+    } finally {
+      setLoading(false);
+    }
+  }, [courseId]);
 
-    const handleDeleteRegistration = (registrationId: string, userName: string) => {
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredRegistrations(registrations);
+    } else {
+      const lowercasedQuery = searchQuery.toLowerCase();
+      const filtered = registrations.filter(registration => {
+        const fullName = `${registration.firstName || ''} ${registration.lastName || ''}`.toLowerCase();
+        const email = (registration.email || '').toLowerCase();
+        return fullName.includes(lowercasedQuery) || email.includes(lowercasedQuery);
+      });
+      setFilteredRegistrations(filtered);
+    }
+  }, [searchQuery, registrations]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchRegistrations();
+    }, [fetchRegistrations])
+  );
+
+  const handleDeleteRegistration = (registrationId: string, userName: string) => {
     Alert.alert(
       "מחיקת הרשמה",
       `האם אתה בטוח שברצונך למחוק את ההרשמה של ${userName}?`,
@@ -119,10 +131,8 @@ const RegistrationsList = () => {
           style: "destructive",
           onPress: async () => {
             try {
-              // Delete the document from Firestore
-              await deleteDoc(doc(db, "Registrations", registrationId));
+              await db.collection("Registrations").doc(registrationId).delete();
               
-              // Update the local state to remove the item from the list instantly
               setRegistrations(prevRegistrations =>
                 prevRegistrations.filter(reg => reg.id !== registrationId)
               );
@@ -158,7 +168,6 @@ const RegistrationsList = () => {
     );
   };
 
-  // Don't show anything until we've verified the user is an admin
   if (!isAdmin && loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -171,24 +180,58 @@ const RegistrationsList = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Text style={styles.backButtonText}>חזרה</Text>
-        </TouchableOpacity>
-        <View style={styles.headerTitles}>
-          <Text style={styles.headerTitle} numberOfLines={1}>נרשמים: {courseName}</Text>
-          <Text style={styles.headerSubtitle}>סה"כ: {registrations.length}</Text>
-        </View>
-      </View>
+    <>
+    <Stack.Screen options={{ headerShown: false }} />
+    <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
+      <View className="px-6 pt-5 pb-3">
+            <View className="flex-row justify-start mb-4">
+              <TouchableOpacity onPress={() => router.back()}>
+                <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
+              </TouchableOpacity>
+            </View>
       
-      {registrations.length === 0 ? (
+          <View className="items-center">
+            <Text className="text-3xl font-bold text-primary">
+            נרשמים: {courseName}
+            </Text>
+            <Text className="text-lg font-medium text-gray-600">סה"כ: {registrations.length}</Text>
+          </View>
+        </View>
+
+      <View className="px-6 mb-4">
+        <TextInput
+          className="bg-gray-100 rounded-full px-5 py-3 text-lg text-right"
+          placeholder="חפש לפי שם או אימייל..."
+          placeholderTextColor="#9CA3AF"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+        {searchQuery.trim() !== "" && (
+          <TouchableOpacity
+            className="absolute left-11 top-1/2 transform -translate-y-1/2"
+            onPress={() => setSearchQuery("")}
+          >
+            <Text className="text-gray-500 text-lg">×</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      {searchQuery.trim() !== "" && (
+        <View className="px-6 mb-2">
+          <Text className="text-sm text-gray-600 text-right">
+            נמצאו {filteredRegistrations.length} נרשמים
+          </Text>
+        </View>
+      )}
+      
+      {filteredRegistrations.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>אין נרשמים לחוג זה עדיין</Text>
+          <Text style={styles.emptyText}>
+            {searchQuery.trim() !== "" ? "לא נמצאו תוצאות" : "אין נרשמים לחוג זה עדיין"}
+          </Text>
         </View>
       ) : (
         <View style={styles.listContainer}>
-          {/* Header row */}
           <View style={styles.tableHeader}>
             <Text style={[styles.headerCell, styles.nameCell]}>שם</Text>
             <Text style={[styles.headerCell, styles.phoneCell]}>טלפון</Text>
@@ -196,56 +239,60 @@ const RegistrationsList = () => {
             <Text style={[styles.headerCell, styles.actionCell]}>פעולות</Text>
           </View>
           
-          {/* Registrations rows using FlatList */}
           <FlatList
-            data={registrations}
+            data={filteredRegistrations}
             renderItem={renderItem}
             keyExtractor={(item) => item.id}
           />
         </View>
       )}
     </SafeAreaView>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4f8' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, fontSize: 16, color: '#1A4782', fontFamily: 'Heebo-Medium' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#f0f4f8' 
+  },
+  loadingContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  loadingText: { 
+    marginTop: 10, 
+    fontSize: 16, 
+    color: '#1A4782', 
+    fontFamily: 'Heebo-Medium' 
+  },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingVertical: 15,
     paddingHorizontal: 20,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#ddd',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center', 
-  },
-  backButton: {
-    position: 'absolute',
-    right: 15,
-    top: 0,
-    bottom: 0,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-  },
-  backButtonText: { 
-    fontSize: 21, 
-    color: '#1A4782', 
-    fontFamily: 'Heebo-Medium' 
-  },
-  headerTitles: { 
-    alignItems: 'center'
   },
   headerTitle: { 
-    fontSize: 22, 
+    fontSize: 20, 
     fontFamily: 'Heebo-Bold', 
-    color: '#1A4782' 
+    color: '#1A4782',
+    textAlign: 'center'
   },
-  headerSubtitle: { fontSize: 16, fontFamily: 'Heebo-Medium', color: '#666' },
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 16, fontFamily: 'Heebo-Medium', color: '#666' },
+  emptyContainer: { 
+    flex: 1, 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  emptyText: { 
+    fontSize: 16, 
+    fontFamily: 'Heebo-Medium', 
+    color: '#666' 
+  },
   listContainer: {
     flex: 1,
     margin: 16,
@@ -295,8 +342,6 @@ const styles = StyleSheet.create({
     flex: 3.5,
   },
   actionCell: { flex: 1.5, alignItems: 'center' },
-
-  // Styles for the delete button
   deleteButton: {
     backgroundColor: '#D9534F',
     paddingVertical: 6,

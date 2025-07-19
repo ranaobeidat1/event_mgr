@@ -12,31 +12,23 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { db, auth, storage } from '../../FirebaseConfig'; // Assuming these are correctly configured
-import { getUser } from '../utils/firestoreUtils'; // Assuming this utility exists
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  limit,
-  addDoc,
-  deleteDoc,
-  doc,
-  serverTimestamp,
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Picker } from '@react-native-picker/picker';
-import type { Timestamp } from 'firebase/firestore';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
+import type { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
+// --- CORRECTED IMPORTS ---
+import { db, auth, storage } from '../../FirebaseConfig'; // Assuming these are correctly configured
+import { getUser } from '../utils/firestoreUtils'; // Assuming this utility exists
+import { useAuth } from "../_layout";
+
+import { FieldValue, Timestamp, GeoPoint } from '../../FirebaseConfig';
 // --- Interface Definitions ---
 interface AlertData {
   id: string;
   title?: string;
   message: string;
-  createdAt: Timestamp;
+  createdAt: FirebaseFirestoreTypes.Timestamp;
 }
 interface Course {
   id: string;
@@ -53,10 +45,8 @@ interface CircleData {
 export default function PostsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  // We keep this for dynamic padding that can't be set via className
   const bottomPadding = insets.bottom + 100;
 
-  // --- State Management (Unchanged) ---
   const [isAdmin, setIsAdmin] = useState(false);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
@@ -69,7 +59,6 @@ export default function PostsScreen() {
   const [newLogoUri, setNewLogoUri] = useState<string | null>(null);
   const [expandedAlertId, setExpandedAlertId] = useState<string | null>(null);
 
-  // --- useEffect Hooks for data fetching and auth (Unchanged) ---
   useEffect(() => {
     (async () => {
       const user = auth.currentUser;
@@ -81,34 +70,51 @@ export default function PostsScreen() {
   }, []);
 
   useEffect(() => {
-    const q = query(collection(db, 'alerts'), orderBy('createdAt', 'desc'), limit(3));
-    const unsubscribe = onSnapshot(q, (snap) => {
+    // --- CORRECTED QUERY SYNTAX ---
+    const query = db.collection('alerts').orderBy('createdAt', 'desc').limit(3);
+    const unsubscribe = query.onSnapshot(
+      (snap) => {
         setAlerts(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<AlertData, 'id'>) })));
         setLoadingAlerts(false);
-      }, () => setLoadingAlerts(false)
+      }, 
+      (err) => {
+        console.error("Error fetching alerts:", err);
+        setLoadingAlerts(false);
+      }
     );
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'courses'), (snap) => {
+    // --- CORRECTED QUERY SYNTAX ---
+    const unsubscribe = db.collection('courses').onSnapshot(
+      (snap) => {
         setCourses(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Course, 'id'>) })));
         setLoadingCourses(false);
-      }, () => setLoadingCourses(false)
+      },
+      (err) => {
+        console.error("Error fetching courses:", err);
+        setLoadingCourses(false);
+      }
     );
     return unsubscribe;
   }, []);
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(collection(db, 'circles'), (snap) => {
+    // --- CORRECTED QUERY SYNTAX ---
+    const unsubscribe = db.collection('circles').onSnapshot(
+      (snap) => {
         setCircles(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<CircleData, 'id'>) })));
         setLoadingCircles(false);
-      }, () => setLoadingCircles(false)
+      },
+      (err) => {
+        console.error("Error fetching circles:", err);
+        setLoadingCircles(false);
+      }
     );
     return unsubscribe;
   }, []);
 
-  // --- Component Functions (Unchanged) ---
   const pickImage = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) {
@@ -136,16 +142,20 @@ export default function PostsScreen() {
       if (newLogoUri) {
         const response = await fetch(newLogoUri);
         const blob = await response.blob();
-        const storageRef = ref(storage, `posts/${course.id}_${Date.now()}`);
-        await uploadBytes(storageRef, blob);
-        logoToSave = await getDownloadURL(storageRef);
+        // --- CORRECTED STORAGE SYNTAX ---
+        const storageRef = storage.ref(`posts/${course.id}_${Date.now()}`);
+        await storageRef.put(blob);
+        logoToSave = await storageRef.getDownloadURL();
+        // --- END CORRECTION ---
       }
-      await addDoc(collection(db, 'circles'), {
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      await db.collection('circles').add({
         courseId: course.id,
         courseName: course.name,
         logoUri: logoToSave,
-        createdAt: serverTimestamp(),
+        createdAt:FieldValue.serverTimestamp(), // Correct server timestamp
       });
+      // --- END CORRECTION ---
     } catch {
       Alert.alert('שגיאה ביצירת עיגול');
     }
@@ -155,15 +165,35 @@ export default function PostsScreen() {
   };
 
   const removeCircle = async (id: string) => {
-    if (!isAdmin) return Alert.alert('אין הרשאות מתאימות');
-    try {
-      await deleteDoc(doc(db, 'circles', id));
-    } catch {
-      Alert.alert('שגיאה במחיקת  עיגול');
-    }
-  };
+  if (!isAdmin) {
+    return Alert.alert('אין הרשאות מתאימות');
+  }
 
-  // --- Loading State ---
+  try {
+    // 1) Load the document to get its logoUri
+    const docSnap = await db.collection('circles').doc(id).get();
+    const data = docSnap.data();
+    const logoUri = data?.logoUri as string | undefined;
+
+    // 2) If there’s an image, delete it from Storage
+    if (logoUri) {
+      // `storage` here is your RNFB storage instance imported from FirebaseConfig
+      const imageRef = storage.refFromURL(logoUri);
+      await imageRef.delete();
+    }
+
+    // 3) Now delete the Firestore document
+    await db.collection('circles').doc(id).delete();
+
+    // 4) Update local UI state (you already remove it from your array)
+    setCircles(prev => prev.filter(c => c.id !== id));
+  } catch (e) {
+    console.error('Error deleting circle & image:', e);
+    Alert.alert('שגיאה', 'אירעה שגיאה במחיקת העיגול.');
+  }
+};
+
+
   if (loadingAlerts || loadingCourses || loadingCircles) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center">
@@ -172,13 +202,11 @@ export default function PostsScreen() {
     );
   }
 
-  // --- Data Transformation for Render (Unchanged) ---
   const rows: CircleData[][] = [];
   for (let i = 0; i < circles.length; i += 3) {
     rows.push(circles.slice(i, i + 3));
   }
   
-  // --- Render Method (with NativeWind) ---
   return (
     <SafeAreaView className="flex-1 bg-white">
       <ScrollView
@@ -189,59 +217,52 @@ export default function PostsScreen() {
           ברוכים הבאים לאפליקציה שלנו!
         </Text>
 
-       {/* Notification rectangle */}
-<View className="mx-4 mb-4 rounded-[20px] p-0.5 bg-[#1A4782] shadow-2xl shadow-black">
-  <View className="bg-white rounded-2xl p-4">
-    <Text className="text-[#1A4782] text-lg font-bold text-right mb-2">
-      התראות אחרונות
-    </Text>
-    {alerts.map(a => {
-      const isExpanded = expandedAlertId === a.id;
-      return (
-        <TouchableOpacity
-          key={a.id}
-          onPress={() => setExpandedAlertId(isExpanded ? null : a.id)}
-          className="bg-[#1A4782] rounded-2xl p-4 mb-3"
-          activeOpacity={0.8}
-        >
-          <View className="flex-row items-center justify-between">
-            {/* Chevron aligned inside left of the card */}
-            <View className="w-8 h-8 rounded-full bg-white justify-center items-center">
-              <Ionicons
-                name={isExpanded ? 'chevron-down' : 'chevron-back'}
-                size={20}
-                color="#1A4782"
-              />
-            </View>
-
-            {/* Title aligned right */}
-            {a.title && (
-              <Text
-                className="text-white text-2xl text-right flex-1 mr-3 font-heebo-bold"
-                numberOfLines={2}
-              >
-                {a.title}
-              </Text>
-            )}
+        <View className="mx-4 mb-4 rounded-[20px] p-0.5 bg-[#1A4782] shadow-2xl shadow-black">
+          <View className="bg-white rounded-2xl p-4">
+            <Text className="text-[#1A4782] text-lg font-bold text-right mb-2">
+              התראות אחרונות
+            </Text>
+            {alerts.map(a => {
+              const isExpanded = expandedAlertId === a.id;
+              return (
+                <TouchableOpacity
+                  key={a.id}
+                  onPress={() => setExpandedAlertId(isExpanded ? null : a.id)}
+                  className="bg-[#1A4782] rounded-2xl p-4 mb-3"
+                  activeOpacity={0.8}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="w-8 h-8 rounded-full bg-white justify-center items-center">
+                      <Ionicons
+                        name={isExpanded ? 'chevron-down' : 'chevron-back'}
+                        size={20}
+                        color="#1A4782"
+                      />
+                    </View>
+                    {a.title && (
+                      <Text
+                        className="text-white text-2xl text-right flex-1 mr-3 font-heebo-bold"
+                        numberOfLines={2}
+                      >
+                        {a.title}
+                      </Text>
+                    )}
+                  </View>
+                  {isExpanded && (
+                    <View className="mt-3 pt-3 border-t border-white/30">
+                      <Text className="text-white text-lg text-right font-tahoma">
+                        {a.message}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
-
-          {isExpanded && (
-            <View className="mt-3 pt-3 border-t border-white/30">
-              <Text className="text-white text-lg text-right font-tahoma">
-                {a.message}
-              </Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      );
-    })}
-  </View>
-</View>
-
+        </View>
 
         <Text className="text-[#1A4782] text-xl font-bold text-center my-2">החוגים שלנו</Text>
 
-        {/* Circles for courses */}
         <View className="mx-4 mb-6">
           {rows.map((row, idx) => (
             <View key={idx} className="flex-row justify-center mb-4">
@@ -280,7 +301,7 @@ export default function PostsScreen() {
           ))}
 
           {isAdmin && circles.length < 6 && (
-             <View className="items-center mx-3">
+              <View className="items-center mx-3">
                 <TouchableOpacity
                   onPress={() => setModalVisible(true)}
                   className="w-28 h-28 rounded-full border-2 border-dashed border-gray-400 justify-center items-center"
@@ -305,7 +326,6 @@ export default function PostsScreen() {
         </View>
       </ScrollView>
 
-      {/* Add-circle modal */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <View className="flex-1 bg-black/50 justify-center items-center">
           <View className="w-[92%] bg-white p-4 rounded-2xl">

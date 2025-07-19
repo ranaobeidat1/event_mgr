@@ -15,13 +15,8 @@ import { useRouter } from 'expo-router'
 import { Ionicons, MaterialIcons } from '@expo/vector-icons'
 import { auth, db } from '../FirebaseConfig'
 import { getUser } from './utils/firestoreUtils'
-import {
-  signOut,
-  updatePassword,
-  reauthenticateWithCredential,
-  EmailAuthProvider,
-} from 'firebase/auth'
-import { doc, updateDoc } from 'firebase/firestore'
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
+import RNAuth from '@react-native-firebase/auth';
 
 const WHATSAPP_URL =
   'https://api.whatsapp.com/send/?phone=0533551455&text=%D7%A9%D7%9C%D7%95%D7%9D%2C+%D7%91%D7%90%D7%AA%D7%99+%D7%93%D7%A8%D7%9A+%D7%94%D7%90%D7%AA%D7%A8&type=phone_number&app_absent=0'
@@ -65,10 +60,11 @@ const Profile = () => {
   }, [userData])
 
   const handleSignOut = () => {
-    signOut(auth)
-      .then(() => router.replace('/login'))
-      .catch(console.error)
-  }
+  
+  auth.signOut()
+    .then(() => router.replace('/login'))
+    .catch(console.error)
+}
 
   const handleMenuPress = (label: string) => {
     if (label === 'צור קשר') {
@@ -203,7 +199,7 @@ const Profile = () => {
                 onPress={async () => {
                   try {
                     const uid = auth.currentUser!.uid
-                    await updateDoc(doc(db, 'users', uid), {
+                    await db.collection('users').doc(uid).update({
                       firstName: newFirstName,
                       lastName: newLastName,
                     })
@@ -273,13 +269,13 @@ const Profile = () => {
                     return
                   }
                   try {
-                    const user = auth.currentUser!
-                    const cred = EmailAuthProvider.credential(
-                      user.email!,
-                      oldPassword
-                    )
-                    await reauthenticateWithCredential(user, cred)
-                    await updatePassword(user, newPassword)
+                  const user = auth.currentUser!
+const cred = RNAuth.EmailAuthProvider.credential(
+  user.email!,
+  oldPassword
+);
+await user.reauthenticateWithCredential(cred);
+await user.updatePassword(newPassword);
                     Alert.alert('הצלחה', 'הסיסמה עודכנה.')
                   } catch (e) {
                     console.error('Password update failed:', e)

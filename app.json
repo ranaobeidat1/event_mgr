@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "סחלב",
+    "name": "עמותת סחלב",
     "slug": "sahlab",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -30,10 +30,14 @@
       "googleServicesFile": "./google-services.json"
     },
     "androidStatusBar": {
-       "barStyle": "light-content",     
-       "translucent": true,
-      "backgroundColor": "#1A4782",          
-      "hidden": false                    
+      "barStyle": "light-content",
+      "backgroundColor": "#1A4782",
+      "hidden": false
+    },
+    "splash": {
+      "image": "./assets/images/splash-fullscreen.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#1A4782"
     },
     "web": {
       "bundler": "metro",
@@ -41,27 +45,12 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      "@react-native-firebase/app",
+      "@react-native-firebase/auth",
+      "@react-native-firebase/app-check",
       "expo-router",
-      [
-        "expo-splash-screen",
-        {
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200,
-          "resizeMode": "contain",
-          "backgroundColor": "#ffffff"
-        }
-      ],
+      "expo-router",
       "expo-font",
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/images/notification-icon.png",
-          "color": "#1A4782",
-          "defaultChannel": "default",
-          "backgroundColor": "#1A4782",
-          "useNextNotificationsApi": true
-        }
-      ],
       [
         "expo-build-properties",
         {

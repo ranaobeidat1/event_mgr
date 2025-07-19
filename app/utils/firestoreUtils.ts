@@ -3,18 +3,8 @@
 // Centralised helpers for Firestore reads / writes + notification-helpers
 // -----------------------------------------------------------------------------
 
-import {
-  collection,
-  doc,
-  getDoc,
-  getDocs,
-  setDoc,
-  updateDoc,
-  deleteDoc,
-  query,
-  where,
-  Timestamp,
-} from 'firebase/firestore';
+// --- CORRECTED IMPORTS ---
+import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 import { db } from '../../FirebaseConfig';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -27,8 +17,8 @@ export interface UserData {
   email?: string;
   phoneNumber?: string;
   role?: string;
-  createdAt?: Timestamp;
-  expoPushToken?: string;            // <── NEW
+  createdAt?: FirebaseFirestoreTypes.Timestamp; // Use correct type
+  expoPushToken?: string;
 }
 
 export interface CourseData {
@@ -42,40 +32,46 @@ export interface RegistrationData {
   userId: string;
   courseId: string;
   status: 'active' | 'cancelled';
-  registrationDate: Timestamp;
+  registrationDate: FirebaseFirestoreTypes.Timestamp; // Use correct type
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
 //  GENERIC USER HELPERS
 // ──────────────────────────────────────────────────────────────────────────────
 export const getUser = async (userId: string): Promise<UserData | null> => {
-  const userRef = doc(db, 'users', userId);
-  const snap   = await getDoc(userRef);
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  const userRef = db.collection('users').doc(userId);
+  const snap = await userRef.get();
   return snap.exists() ? ({ id: snap.id, ...snap.data() } as UserData) : null;
 };
 
 export const createUser = async (userId: string, data: Partial<UserData>) =>
-  setDoc(doc(db, 'users', userId), data, { merge: true });
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  db.collection('users').doc(userId).set(data, { merge: true });
 
 export const updateUser = async (userId: string, data: Partial<UserData>) =>
-  updateDoc(doc(db, 'users', userId), data);
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  db.collection('users').doc(userId).update(data);
 
 export const deleteUser = async (userId: string) =>
-  deleteDoc(doc(db, 'users', userId));
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  db.collection('users').doc(userId).delete();
 
 // ──────────────────────────────────────────────────────────────────────────────
 //  COURSE / REGISTRATION QUERIES
 // ──────────────────────────────────────────────────────────────────────────────
 export const getCourses = async (): Promise<CourseData[]> => {
-  const snap = await getDocs(collection(db, 'courses'));
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  const snap = await db.collection('courses').get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as CourseData));
 };
 
 export const getRegistrations = async (
   userId: string
 ): Promise<RegistrationData[]> => {
-  const q    = query(collection(db, 'Registrations'), where('userId', '==', userId));
-  const snap = await getDocs(q);
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  const q = db.collection('Registrations').where('userId', '==', userId);
+  const snap = await q.get();
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as RegistrationData));
 };
 
@@ -89,14 +85,12 @@ export const getRegistrations = async (
 export const getUserIdsRegisteredToCourse = async (
   courseId: string
 ): Promise<string[]> => {
-  const regsRef = collection(db, 'Registrations');
-  const q = query(
-    regsRef,
-    where('courseId', '==', courseId),
-    where('status', '==', 'active')
-  );
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  const q = db.collection('Registrations')
+    .where('courseId', '==', courseId)
+    .where('status', '==', 'active');
 
-  const snap = await getDocs(q);
+  const snap = await q.get();
   return snap.docs.map(d => d.data().userId as string);
 };
 
@@ -106,23 +100,30 @@ export const getUserIdsRegisteredToCourse = async (
 export const getExpoTokensFromUserIds = async (
   userIds: string[]
 ): Promise<string[]> => {
+  if (userIds.length === 0) {
+    return [];
+  }
   const tokens: string[] = [];
-  for (const uid of userIds) {
-    const uSnap = await getDoc(doc(db, 'users', uid));
-    if (uSnap.exists()) {
+  // Firestore 'in' query is more efficient than multiple gets
+  // Note: 'in' queries are limited to 30 items in the array. If you expect more, you'll need to batch this.
+  const usersSnapshot = await db.collection('users').where(FirebaseFirestoreTypes.FieldPath.documentId(), 'in', userIds).get();
+  
+  usersSnapshot.forEach(uSnap => {
       const t = uSnap.data().expoPushToken as string | undefined;
       if (t) tokens.push(t);
-    }
-  }
+  });
+
   return tokens;
 };
+
 
 /**
  * Returns every Expo token in the system (for general broadcasts).
  */
 export const getExpoTokensOfAllUsers = async (): Promise<string[]> => {
-  const snap = await getDocs(collection(db, 'users'));
+  // --- CORRECTED FIRESTORE SYNTAX ---
+  const snap = await db.collection('users').get();
   return snap.docs
     .map(d => d.data().expoPushToken as string | undefined)
-    .filter(Boolean) as string[];
+    .filter((token): token is string => !!token); // Type guard for filtering
 };

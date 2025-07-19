@@ -19,13 +19,9 @@ import {
 import { Picker } from '@react-native-picker/picker';
 import { router } from 'expo-router';
 import { db, auth } from '../../FirebaseConfig';
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  getDocs,
-} from 'firebase/firestore';
+// --- CORRECTED IMPORTS ---
 
+ import { FieldValue, Timestamp, GeoPoint } from '../../FirebaseConfig';
 // 🆕 helpers for tokens + push
 import {
   getExpoTokensOfAllUsers,
@@ -47,16 +43,16 @@ interface CourseData {
 
 // ──────────────────────────────────────────────────────────────────────────────
 export default function CreateAlertScreen() {
-  const [title, setTitle]             = useState('');
-  const [message, setMessage]         = useState('');
+  const [title, setTitle] = useState('');
+  const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Push notification settings
-  const [sendPush, setSendPush]         = useState(true);
-  const [target, setTarget]             = useState<NotificationTarget>({ type: 'all' });
+  const [sendPush, setSendPush] = useState(true);
+  const [target, setTarget] = useState<NotificationTarget>({ type: 'all' });
 
   // courses list for Picker
-  const [courses, setCourses]         = useState<CourseData[]>([]);
+  const [courses, setCourses] = useState<CourseData[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(false);
 
   // ──────────────────────────────────────────────────────────
@@ -66,7 +62,8 @@ export default function CreateAlertScreen() {
     const loadCourses = async () => {
       setLoadingCourses(true);
       try {
-        const snap = await getDocs(collection(db, 'courses'));
+        // --- CORRECTED QUERY SYNTAX ---
+        const snap = await db.collection('courses').get();
         setCourses(
           snap.docs.map(d => ({ id: d.id, name: d.data().name } as CourseData))
         );
@@ -114,14 +111,14 @@ export default function CreateAlertScreen() {
         return;
       }
 
-      // 1️⃣  Save alert in Firestore
-      await addDoc(collection(db, 'alerts'), {
-        title:        title.trim(),
-        message:      message.trim(),
-        createdBy:    user.uid,
-        createdAt:    serverTimestamp(),
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      await db.collection('alerts').add({
+        title: title.trim(),
+        message: message.trim(),
+        createdBy: user.uid,
+        createdAt:  FieldValue.serverTimestamp(), // Correct server timestamp
         notificationSent: sendPush,
-        targetType:   target.type,
+        targetType: target.type,
         targetCourseId: target.courseId || null,
       });
 
@@ -145,12 +142,12 @@ export default function CreateAlertScreen() {
       setMessage('');
       setSendPush(true);
       setTarget({ type: 'all' });
-    } catch (err) {
-      console.error('Error creating alert:', err);
-      Alert.alert('שגיאה', 'אירעה שגיאה ביצירת ההתראה.');
-    } finally {
-      setIsSubmitting(false);
-    }
+    } catch (err: any) { // Add ": any" to inspect the error
+  console.error('Error creating alert:', err);
+  // Create a more detailed message that includes the actual error from Firebase
+  const detailedMessage = `אירעה שגיאה ביצירת ההתראה: ${err.message || 'לא ידועה'}`;
+  Alert.alert('שגיאה', detailedMessage);
+}
   };
 
   // ──────────────────────────────────────────────────────────
@@ -307,8 +304,8 @@ export default function CreateAlertScreen() {
           >
             {isLoading ? (
               <View className="flex-row items-center justify-center">
-                <ActivityIndicator color="black" size="large" />
-                <Text className="text-black text-center text-xl font-heebo-bold ml-2">
+                <ActivityIndicator color="white" size="small" />
+                <Text className="text-white text-center text-xl font-heebo-bold ml-2">
                   שולח התראה...
                 </Text>
               </View>

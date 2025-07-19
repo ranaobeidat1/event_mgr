@@ -15,10 +15,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+// --- CORRECTED IMPORTS ---
 import { auth, db, storage } from '../FirebaseConfig';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-
+import { FieldValue, Timestamp, GeoPoint } from '../FirebaseConfig';
 export default function AddClass() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -30,7 +29,6 @@ export default function AddClass() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
 
-  // Function to pick images
   const pickImages = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -48,31 +46,24 @@ export default function AddClass() {
     }
   };
 
-  // Function to remove an image
   const removeImage = (index: number) => {
     setLocalImageUris(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Function to upload images to Firebase Storage
   const uploadImages = async (localUris: string[]): Promise<string[]> => {
     setUploadingImages(true);
     const uploadedUrls: string[] = [];
     
     try {
       for (const uri of localUris) {
-        // Create a unique filename
         const filename = `courses/${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
-        
-        // Convert URI to blob
         const response = await fetch(uri);
         const blob = await response.blob();
         
-        // Upload to Firebase Storage
-        const storageRef = ref(storage, filename);
-        const snapshot = await uploadBytes(storageRef, blob);
-        
-        // Get download URL
-        const downloadUrl = await getDownloadURL(snapshot.ref);
+        // --- CORRECTED STORAGE SYNTAX ---
+        const storageRef = storage.ref(filename);
+        await storageRef.put(blob);
+        const downloadUrl = await storageRef.getDownloadURL();
         uploadedUrls.push(downloadUrl);
       }
       
@@ -85,15 +76,12 @@ export default function AddClass() {
     }
   };
 
-  // Function to handle form submission
   const handleSubmit = async () => {
-    // Validate fields
     if (!name || !description || !location || !schedule || !maxCapacity) {
       Alert.alert('שגיאה', 'כל השדות הם שדות חובה');
       return;
     }
 
-    // Validate max capacity is a number
     const parsedCapacity = parseInt(maxCapacity);
     if (isNaN(parsedCapacity) || parsedCapacity <= 0) {
       Alert.alert('שגיאה', 'מספר משתתפים מקסימלי חייב להיות מספר חיובי');
@@ -110,7 +98,6 @@ export default function AddClass() {
         return;
       }
 
-      // Upload images if any
       let uploadedImageUrls: string[] = [];
       if (localImageUris.length > 0) {
         try {
@@ -122,20 +109,20 @@ export default function AddClass() {
         }
       }
 
-      // Add document to Firestore
+      // --- CORRECTED FIRESTORE SYNTAX ---
       const courseData = {
         name,
         description,
         location,
         schedule,
         maxCapacity: parsedCapacity,
-        imageUrl: uploadedImageUrls, // Array of Firebase Storage URLs
-        payment: payment || '', // Empty string if not provided
+        imageUrl: uploadedImageUrls,
+        payment: payment || '',
         createdBy: user.uid,
-        createdAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(), // Correct server timestamp
       };
 
-      await addDoc(collection(db, 'courses'), courseData);
+      await db.collection('courses').add(courseData);
       
       Alert.alert('הצלחה', 'החוג נוסף בהצלחה', [
         { 
@@ -182,7 +169,7 @@ export default function AddClass() {
           <View className="mb-6">
             <Text className="text-xl font-heebo-medium mb-2 px-4">תיאור</Text>
             <TextInput
-              className="bg-gray-100 rounded-full px-5 py-3 text-xl font-heebo-regular text-right"
+              className="bg-gray-100 rounded-lg px-5 py-3 text-xl font-heebo-regular text-right h-32"
               value={description}
               onChangeText={setDescription}
               placeholder="הזן תיאור קצר של החוג"
@@ -233,7 +220,6 @@ export default function AddClass() {
             />
           </View>
 
-          {/* Image picker button */}
           <TouchableOpacity
             className="bg-primary rounded-full py-4 mb-4 items-center"
             onPress={pickImages}
@@ -243,7 +229,6 @@ export default function AddClass() {
             </Text>
           </TouchableOpacity>
 
-          {/* Image preview */}
           {localImageUris.length > 0 && (
             <View className="mb-6">
               <Text className="text-xl font-heebo-medium mb-2 px-4">תמונות שנבחרו:</Text>
@@ -267,7 +252,6 @@ export default function AddClass() {
             </View>
           )}
 
-          {/* Submit button */}
           <TouchableOpacity
             onPress={handleSubmit}
             disabled={isSubmitting || uploadingImages}

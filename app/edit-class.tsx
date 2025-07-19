@@ -14,10 +14,9 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router, useLocalSearchParams, Stack } from 'expo-router';
+// --- CORRECTED IMPORTS ---
 import { auth, db, storage } from '../FirebaseConfig';
-import { doc, updateDoc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
-
+import { FieldValue, Timestamp, GeoPoint } from '../FirebaseConfig';
 export default function EditClass() {
   const params = useLocalSearchParams();
   const classId = params.id as string;
@@ -33,22 +32,27 @@ export default function EditClass() {
   const [deletedImages, setDeletedImages] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchClassData = async () => {
+      setLoading(true);
       try {
-        const classRef = doc(db, 'courses', classId);
-        const classSnap = await getDoc(classRef);
+        // --- CORRECTED FIRESTORE SYNTAX ---
+        const classRef = db.collection('courses').doc(classId);
+        const classSnap = await classRef.get();
 
         if (classSnap.exists()) {
           const data = classSnap.data();
-          setName(data.name || '');
-          setDescription(data.description || '');
-          setLocation(data.location || '');
-          setSchedule(data.schedule || '');
-          setMaxCapacity(data.maxCapacity?.toString() || '');
-          setPayment(data.payment || '');
-          setExistingImages(data.imageUrl || []);
+          if (data) {
+            setName(data.name || '');
+            setDescription(data.description || '');
+            setLocation(data.location || '');
+            setSchedule(data.schedule || '');
+            setMaxCapacity(data.maxCapacity?.toString() || '');
+            setPayment(data.payment || '');
+            setExistingImages(data.imageUrl || []);
+          }
         } else {
           Alert.alert('שגיאה', 'לא נמצא חוג עם מזהה זה');
           router.back();
@@ -56,6 +60,8 @@ export default function EditClass() {
       } catch (error) {
         console.error('Error fetching class data:', error);
         Alert.alert('שגיאה', 'אירעה שגיאה בטעינת נתוני החוג');
+      } finally {
+        setLoading(false);
       }
     };
 
@@ -96,9 +102,10 @@ export default function EditClass() {
         const filename = `courses/${Date.now()}_${Math.random().toString(36).substring(7)}.jpg`;
         const response = await fetch(uri);
         const blob = await response.blob();
-        const storageRef = ref(storage, filename);
-        const snapshot = await uploadBytes(storageRef, blob);
-        const downloadUrl = await getDownloadURL(snapshot.ref);
+        // --- CORRECTED STORAGE SYNTAX ---
+        const storageRef = storage.ref(filename);
+        await storageRef.put(blob);
+        const downloadUrl = await storageRef.getDownloadURL();
         uploadedUrls.push(downloadUrl);
       }
       return uploadedUrls;
@@ -113,12 +120,9 @@ export default function EditClass() {
   const deleteImagesFromStorage = async (urls: string[]) => {
     for (const url of urls) {
       try {
-        const decodedUrl = decodeURIComponent(url);
-        const startIndex = decodedUrl.indexOf('/o/') + 3;
-        const endIndex = decodedUrl.indexOf('?');
-        const filePath = decodedUrl.substring(startIndex, endIndex);
-        const imageRef = ref(storage, filePath);
-        await deleteObject(imageRef);
+        // --- CORRECTED STORAGE SYNTAX ---
+        const imageRef = storage.refFromURL(url);
+        await imageRef.delete();
       } catch (error) {
         console.error('Error deleting image:', error);
       }
@@ -164,8 +168,9 @@ export default function EditClass() {
 
       const finalImageUrls = [...existingImages, ...newUploadedUrls];
 
-      const courseRef = doc(db, 'courses', classId);
-      await updateDoc(courseRef, {
+      // --- CORRECTED FIRESTORE SYNTAX ---
+      const courseRef = db.collection('courses').doc(classId);
+      await courseRef.update({
         name,
         description,
         location,
@@ -173,7 +178,7 @@ export default function EditClass() {
         maxCapacity: parsedCapacity,
         imageUrl: finalImageUrls,
         payment: payment || '',
-        updatedAt: new Date(),
+        updatedAt: FieldValue.serverTimestamp(), // Use correct server timestamp
       });
 
       Alert.alert('הצלחה', 'החוג עודכן בהצלחה', [
@@ -186,6 +191,14 @@ export default function EditClass() {
       setIsSubmitting(false);
     }
   };
+
+  if (loading) {
+      return (
+          <SafeAreaView className="flex-1 justify-center items-center bg-white">
+              <ActivityIndicator size="large" color="#1A4782" />
+          </SafeAreaView>
+      )
+  }
 
   return (
     <>

@@ -1,13 +1,8 @@
 import { db } from '../../FirebaseConfig';
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  Timestamp,
-  QueryDocumentSnapshot,
-  DocumentData
-} from 'firebase/firestore';
+// --- CORRECTED IMPORTS ---
+import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+
+// Note: QueryDocumentSnapshot and DocumentData will now be inferred from FirebaseFirestoreTypes
 
 export interface DashboardStats {
   totalUsers: number;
@@ -18,7 +13,6 @@ export interface DashboardStats {
   activeUsers: number;
   alertsSentThisMonth: number;
   courseAnalytics: CourseAnalytics[];
-  // ← new
   courseMonthlyRegistrations: CourseMonthlyRegistrations[];
   monthlyGrowth: MonthlyGrowth;
   weeklyData: WeeklyData[];
@@ -61,6 +55,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
 
+    // --- CORRECTED FIRESTORE SYNTAX ---
     const [
       usersSnapshot,
       coursesSnapshot,
@@ -68,15 +63,15 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       postsSnapshot,
       alertsSnapshot
     ] = await Promise.all([
-      getDocs(collection(db, 'users')),
-      getDocs(collection(db, 'courses')),
-      getDocs(collection(db, 'Registrations')),
-      getDocs(collection(db, 'posts')),
-      getDocs(query(
-        collection(db, 'alerts'),
-        where('createdAt', '>=', Timestamp.fromDate(startOfMonth))
-      ))
+      db.collection('users').get(),
+      db.collection('courses').get(),
+      db.collection('Registrations').get(),
+      db.collection('posts').get(),
+      db.collection('alerts')
+        .where('createdAt', '>=', FirebaseFirestoreTypes.Timestamp.fromDate(startOfMonth))
+        .get()
     ]);
+    // --- END CORRECTION ---
 
     const totalUsers = usersSnapshot.size;
     const totalCourses = coursesSnapshot.size;
@@ -87,20 +82,17 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
 
     const newRegistrationsLast30Days = registrationsSnapshot.docs
       .filter(d => {
-        const dt = d.data().registrationDate?.toDate();
+        const dt = (d.data().registrationDate as FirebaseFirestoreTypes.Timestamp)?.toDate();
         return dt && dt >= thirtyDaysAgo;
       }).length;
 
     const activeUsers = usersSnapshot.docs
       .filter(d => {
-        const dt = d.data().createdAt?.toDate();
+        const dt = (d.data().createdAt as FirebaseFirestoreTypes.Timestamp)?.toDate();
         return dt && dt >= thirtyDaysAgo;
       }).length;
 
-    // 1) courseAnalytics
     const courseAnalytics = await getCourseAnalytics(coursesSnapshot, registrationsSnapshot);
-
-    // 2) monthlyGrowth
     const monthlyGrowth = await calculateMonthlyGrowth(
       registrationsSnapshot,
       usersSnapshot,
@@ -108,19 +100,16 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       startOfLastMonth,
       endOfLastMonth
     );
-
-    // 3) weeklyData
     const weeklyData = calculateWeeklyData(registrationsSnapshot);
 
-    // 4) courseMonthlyRegistrations
     const monthlyCounts: Record<string, number[]> = {};
     courseAnalytics.forEach(c => {
       monthlyCounts[c.courseId] = Array(12).fill(0);
     });
-    registrationsSnapshot.docs.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
+    registrationsSnapshot.docs.forEach((d) => {
       const data = d.data();
       const cid = data.courseId;
-      const dt = data.registrationDate?.toDate();
+      const dt = (data.registrationDate as FirebaseFirestoreTypes.Timestamp)?.toDate();
       if (cid && dt && monthlyCounts[cid]) {
         monthlyCounts[cid][dt.getMonth()]++;
       }
@@ -150,11 +139,11 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
 };
 
 const getCourseAnalytics = async (
-  coursesSnapshot: any,
-  registrationsSnapshot: any
+  coursesSnapshot: FirebaseFirestoreTypes.QuerySnapshot,
+  registrationsSnapshot: FirebaseFirestoreTypes.QuerySnapshot
 ): Promise<CourseAnalytics[]> => {
   const map = new Map<string, CourseAnalytics>();
-  coursesSnapshot.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
+  coursesSnapshot.forEach((d) => {
     const data = d.data();
     map.set(d.id, {
       courseId: d.id,
@@ -164,7 +153,7 @@ const getCourseAnalytics = async (
       fillRate: 0
     });
   });
-  registrationsSnapshot.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
+  registrationsSnapshot.forEach((d) => {
     const cid = d.data().courseId;
     if (map.has(cid)) {
       map.get(cid)!.totalRegistrations++;
@@ -181,26 +170,26 @@ const getCourseAnalytics = async (
 };
 
 const calculateMonthlyGrowth = async (
-  regSnap: any,
-  userSnap: any,
+  regSnap: FirebaseFirestoreTypes.QuerySnapshot,
+  userSnap: FirebaseFirestoreTypes.QuerySnapshot,
   startOfMonth: Date,
   startOfLastMonth: Date,
   endOfLastMonth: Date
 ): Promise<MonthlyGrowth> => {
-  const regsThis = regSnap.docs.filter((d: any) => {
-    const dt = d.data().registrationDate?.toDate();
+  const regsThis = regSnap.docs.filter((d) => {
+    const dt = (d.data().registrationDate as FirebaseFirestoreTypes.Timestamp)?.toDate();
     return dt && dt >= startOfMonth;
   }).length;
-  const regsLast = regSnap.docs.filter((d: any) => {
-    const dt = d.data().registrationDate?.toDate();
+  const regsLast = regSnap.docs.filter((d) => {
+    const dt = (d.data().registrationDate as FirebaseFirestoreTypes.Timestamp)?.toDate();
     return dt && dt >= startOfLastMonth && dt <= endOfLastMonth;
   }).length;
-  const usersThis = userSnap.docs.filter((d: any) => {
-    const dt = d.data().createdAt?.toDate();
+  const usersThis = userSnap.docs.filter((d) => {
+    const dt = (d.data().createdAt as FirebaseFirestoreTypes.Timestamp)?.toDate();
     return dt && dt >= startOfMonth;
   }).length;
-  const usersLast = userSnap.docs.filter((d: any) => {
-    const dt = d.data().createdAt?.toDate();
+  const usersLast = userSnap.docs.filter((d) => {
+    const dt = (d.data().createdAt as FirebaseFirestoreTypes.Timestamp)?.toDate();
     return dt && dt >= startOfLastMonth && dt <= endOfLastMonth;
   }).length;
 
@@ -221,7 +210,7 @@ const calculateMonthlyGrowth = async (
   };
 };
 
-const calculateWeeklyData = (regSnap: any): WeeklyData[] => {
+const calculateWeeklyData = (regSnap: FirebaseFirestoreTypes.QuerySnapshot): WeeklyData[] => {
   const days = ['א׳','ב׳','ג׳','ד׳','ה׳','ו׳','ש׳'];
   const today = new Date();
   const week: WeeklyData[] = [];
@@ -230,8 +219,8 @@ const calculateWeeklyData = (regSnap: any): WeeklyData[] => {
     d.setDate(today.getDate() - i);
     week.push({ day: days[d.getDay()], registrations: 0 });
   }
-  regSnap.forEach((d: QueryDocumentSnapshot<DocumentData>) => {
-    const dt = d.data().registrationDate?.toDate();
+  regSnap.forEach((d) => {
+    const dt = (d.data().registrationDate as FirebaseFirestoreTypes.Timestamp)?.toDate();
     if (dt) {
       const diff = Math.floor((today.getTime() - dt.getTime()) / (1000*60*60*24));
       if (diff >= 0 && diff < 7) {

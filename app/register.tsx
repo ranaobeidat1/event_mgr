@@ -10,43 +10,39 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  SafeAreaView, // Added SafeAreaView for consistency
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
+// --- CORRECTED IMPORTS ---
 import { auth, db } from '../FirebaseConfig';
-import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-} from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore'; // Correct type import
 import { useAuth } from './_layout'; 
+ import { FieldValue, Timestamp, GeoPoint } from '../FirebaseConfig';
 export default function RegisterScreen() {
-  const {  setIsGuest } = useAuth();
+  const { setIsGuest } = useAuth();
   const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName]   = useState('');
-  const [email, setEmail]         = useState('');
-  const [password, setPassword]   = useState('');
-  const [error, setError]         = useState<string | null>(null);
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
-  // animation refs
   const logoScale = useRef(new Animated.Value(0)).current;
   const fieldAnims = [
-    useRef(new Animated.Value(0)).current, // firstName
-    useRef(new Animated.Value(0)).current, // lastName
-    useRef(new Animated.Value(0)).current, // email
-    useRef(new Animated.Value(0)).current, // password
-    useRef(new Animated.Value(0)).current, // button
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
+    useRef(new Animated.Value(0)).current,
   ];
 
-  // redirect if already signed in
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, user => {
+    // --- CORRECTED AUTH LISTENER SYNTAX ---
+    const unsub = auth.onAuthStateChanged(user => {
       if (user) router.replace('/(tabs)');
     });
     return unsub;
   }, []);
 
-  // run logo pop then stagger fields
   useEffect(() => {
     Animated.sequence([
       Animated.spring(logoScale, {
@@ -68,50 +64,42 @@ export default function RegisterScreen() {
     ]).start();
   }, []);
 
-  // Combined registration function with Firestore logic
-
   const handleRegister = async () => {
     setError(null);
-
-    // 1. Validate inputs
     if (!firstName || !lastName || !email || !password) {
       setError('All fields are required');
       return;
     }
 
     try {
-      console.log('Starting registration process');
-
-      // 2. Create auth user
-      const { user } = await createUserWithEmailAndPassword(
-        auth,
+      // --- CORRECTED AUTH & FIRESTORE SYNTAX ---
+      const { user } = await auth.createUserWithEmailAndPassword(
         email.trim(),
         password
       );
-      console.log('Authentication successful. User ID:', user.uid);
 
-      // 3. Write profile to Firestore
-      await setDoc(doc(db, 'users', user.uid), {
+      await db.collection('users').doc(user.uid).set({
         firstName,
         lastName,
         email,
         role: 'user',
-        createdAt: new Date(),
+        createdAt: FieldValue.serverTimestamp(), // Correct server timestamp
       });
-      console.log('Firestore write successful');
 
-      // 4. Clear the guest flag
       setIsGuest(false);
-
-      // 5. Navigate into your tabs and block “back”
       router.replace('/(tabs)');
     } catch (err: any) {
+      if (err.code === 'auth/email-already-in-use') {
+        setError('That email address is already in use!');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('That email address is invalid!');
+      } else {
+        setError(err.message);
+      }
       console.error('Registration error:', err);
-      setError(err.message || 'Registration failed');
     }
   };
 
-  // helper for interpolated translateY
   const interpY = (anim: Animated.Value) =>
     anim.interpolate({ inputRange: [0, 1], outputRange: [20, 0] });
 
@@ -130,7 +118,6 @@ export default function RegisterScreen() {
             paddingHorizontal: 20,
           }}
         >
-          {/* Animated logo */}
           <Animated.Image
             source={require('../assets/icons/logoIcon.png')}
             style={{
@@ -142,7 +129,6 @@ export default function RegisterScreen() {
             resizeMode="contain"
           />
 
-          {/* Inputs and button, each in its own Animated.View */}
           <View className="w-full mt-10">
             <Animated.View
               style={{
@@ -210,7 +196,7 @@ export default function RegisterScreen() {
             {error && (
               <Animated.View
                 style={{
-                  opacity: fieldAnims[3], // fade error with password field
+                  opacity: fieldAnims[3],
                   transform: [{ translateY: interpY(fieldAnims[3]) }],
                 }}
               >

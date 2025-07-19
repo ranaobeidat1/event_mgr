@@ -13,7 +13,6 @@ import {
 import { useRouter } from 'expo-router'; 
 import { auth, db } from '../FirebaseConfig';
 import { getUser } from './utils/firestoreUtils';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 
 // Interface for user data
 interface UserData {
@@ -33,11 +32,9 @@ export default function UsersScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
 
-  // Check if current user is admin and fetch all users
   useEffect(() => {
     const checkAdminAndFetchUsers = async () => {
       try {
-        // Check if current user is admin
         const user = auth.currentUser;
         if (!user) {
           router.replace('/login');
@@ -53,27 +50,48 @@ export default function UsersScreen() {
         
         setIsAdmin(true);
 
-        // Fetch all users from Firestore
-        const querySnapshot = await getDocs(collection(db, "users"));
-        const usersList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })) as UserData[];
+        // --- CHANGE HERE: Use a real-time listener instead of a one-time fetch ---
+        const unsubscribe = db.collection("users").onSnapshot(querySnapshot => {
+          const usersList = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          })) as UserData[];
+          
+          setUsers(usersList);
+          // We also update filteredUsers here so the search works with live data
+          setFilteredUsers(usersList);
+          setLoading(false); // Stop loading once we have the initial data
+        }, (error) => {
+          console.error("Error fetching users:", error);
+          Alert.alert("שגיאה", "אירעה שגיאה בטעינת המשתמשים");
+          setLoading(false);
+        });
         
-        setUsers(usersList);
-        setFilteredUsers(usersList); // Initialize filtered list
+        // Return the unsubscribe function to be called on component unmount
+        return unsubscribe;
+
       } catch (error) {
-        console.error("Error fetching users:", error);
-        Alert.alert("שגיאה", "אירעה שגיאה בטעינת המשתמשים");
-      } finally {
+        console.error("Error setting up user listener:", error);
         setLoading(false);
       }
     };
 
-    checkAdminAndFetchUsers();
+    let unsubscribe: (() => void) | undefined;
+    checkAdminAndFetchUsers().then(unsub => {
+      if (unsub) {
+        unsubscribe = unsub;
+      }
+    });
+
+    // Cleanup function for useEffect
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
   }, []);
 
-  // Filter users based on search query
+  // This useEffect for searching remains the same, it will now just work with live data
   useEffect(() => {
     if (searchQuery.trim() === '') {
       setFilteredUsers(users);
@@ -88,22 +106,17 @@ export default function UsersScreen() {
     }
   }, [searchQuery, users]);
 
-  // Toggle user role between admin and user
   const toggleUserRole = async (userId: string, currentRole: string | undefined) => {
     try {
       const newRole = currentRole === "admin" ? "user" : "admin";
       
-      // Update user role in Firestore
-      await updateDoc(doc(db, "users", userId), {
+      await db.collection("users").doc(userId).update({
         role: newRole
       });
       
-      // Update local state
-      setUsers(prevUsers => 
-        prevUsers.map(user => 
-          user.id === userId ? { ...user, role: newRole } : user
-        )
-      );
+      // --- CHANGE HERE: The manual state update below is no longer needed! ---
+      // The onSnapshot listener will automatically update the state for us when
+      // the data changes in Firestore.
       
       Alert.alert("עודכן בהצלחה", `הרשאות משתמש עודכנו ל${newRole === "admin" ? "מנהל" : "משתמש רגיל"}`);
     } catch (error) {
@@ -122,7 +135,6 @@ export default function UsersScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
-      {/* Header */}
       <View className="px-6 pt-5 pb-3">
         <View className="flex-row justify-start mb-4">
           <TouchableOpacity onPress={() => router.back()}>
@@ -139,7 +151,6 @@ export default function UsersScreen() {
 
     <ScrollView className="flex-1 px-6">
 
-      {/* Search Bar */}
         <View className="mb-4">
           <TextInput
             className="bg-gray-100 rounded-full px-5 py-3 text-lg text-right"
@@ -159,7 +170,6 @@ export default function UsersScreen() {
         </View>
 
         <View>
-          {/* Search Results Counter */}
           {searchQuery.trim() !== "" && (
             <View className="mb-2">
               <Text className="text-sm text-gray-600 text-right">
@@ -191,7 +201,6 @@ export default function UsersScreen() {
                   </View>
                 </View>
 
-                {/* Don't show toggle button for current user */}
                 {user.id !== auth.currentUser?.uid && (
                   <TouchableOpacity
                     className={`px-4 py-2 rounded-full ${user.role === "admin" ? "bg-yellow-500" : "bg-blue-500"}`}

@@ -1,3 +1,5 @@
+// app/(tabs)/index.tsx
+
 import React, { useEffect, useState } from "react";
 import {
   ScrollView,
@@ -6,19 +8,16 @@ import {
   SafeAreaView,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
 } from "react-native";
 import { Link } from "expo-router";
-import { collection, getDocs } from "firebase/firestore";
 import { auth, db } from "../../FirebaseConfig";
 import { getUser } from "../utils/firestoreUtils";
 import { useAuth } from "../_layout";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 
-interface UserData {
-  id: string;
-  role?: string;
-}
+interface UserData { id: string; role?: string; }
 interface ClassData {
   id: string;
   name: string;
@@ -39,46 +38,63 @@ export default function Index() {
 
   // filter logic
   useEffect(() => {
-    if (!searchQuery.trim()) return void setFilteredClasses(classes);
-    const q = searchQuery.toLowerCase();
-    setFilteredClasses(
-      classes.filter(c =>
-        [c.name, c.location, c.schedule]
-          .filter(Boolean)
-          .some(str => str!.toLowerCase().includes(q))
-      )
-    );
+    if (!searchQuery.trim()) {
+      setFilteredClasses(classes);
+    } else {
+      const q = searchQuery.toLowerCase();
+      setFilteredClasses(
+        classes.filter(c =>
+          [c.name, c.location, c.schedule]
+            .filter(Boolean)
+            .some(str => str!.toLowerCase().includes(q))
+        )
+      );
+    }
   }, [classes, searchQuery]);
 
-  // fetch classes + role
+  // 1️⃣ Check admin role once
   useEffect(() => {
     (async () => {
-      try {
-        if (!isGuest && auth.currentUser) {
-          const ud = (await getUser(auth.currentUser.uid)) as UserData;
-          setIsAdmin(ud.role === "admin");
-        }
-        const snap = await getDocs(collection(db, "courses"));
-        setClasses(
-          snap.docs.map(d => ({
-            id: d.id,
-            name: d.data().name,
-            location: d.data().location,
-            schedule: d.data().schedule,
-          }))
-        );
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
+      if (!isGuest && auth.currentUser) {
+        const ud = (await getUser(auth.currentUser.uid)) as UserData;
+        setIsAdmin(ud.role === "admin");
+      } else {
+        setIsAdmin(false);
       }
     })();
   }, [isGuest]);
 
+  // 2️⃣ Real‑time listener for courses collection
+  useEffect(() => {
+    setLoading(true);
+
+    // Subscribe to live updates
+    const unsubscribe = db
+      .collection("courses")
+      .orderBy("createdAt", "desc")    // if you have a timestamp field
+      .onSnapshot(
+        snap => {
+          const cls = snap.docs.map(d => ({
+            id: d.id,
+            ...(d.data() as Omit<ClassData, "id">),
+          }));
+          setClasses(cls);
+          setLoading(false);
+        },
+        err => {
+          console.error("Error fetching courses:", err);
+          setLoading(false);
+        }
+      );
+
+    // Clean up on unmount
+    return () => unsubscribe();
+  }, []);
+
   if (loading) {
     return (
       <View className="flex-1 items-center justify-center bg-white">
-        <Text className="text-primary text-xl">טוען...</Text>
+        <ActivityIndicator size="large" color="#1A4782" />
       </View>
     );
   }
@@ -102,9 +118,7 @@ export default function Index() {
       <ScrollView
         contentContainerStyle={{
           paddingHorizontal: 16,
-          // this ensures we clear BOTH system inset + the tab bar + your extra
-          paddingBottom:
-            insets.bottom + tabBarHeight  + (isAdmin ? 12 : 20),
+          paddingBottom: insets.bottom + tabBarHeight + (isAdmin ? 12 : 20),
         }}
       >
         {/* Search */}
@@ -149,7 +163,7 @@ export default function Index() {
             </Text>
           )}
 
-          {filteredClasses.map((cls) => (
+          {filteredClasses.map(cls => (
             <Link key={cls.id} href={`/classes/${cls.id}`} asChild>
               <TouchableOpacity className="bg-primary rounded-3xl p-6 shadow-md w-full">
                 <Text className="text-white text-2xl mb-4 text-right font-heebo-bold">
@@ -159,7 +173,9 @@ export default function Index() {
                   {cls.location && (
                     <View className="flex-row items-center bg-white px-3 py-1 rounded-full">
                       <Text className="text-primary text-sm">📍</Text>
-                      <Text className="text-primary mr-2 text-right font-heebo-regular">{cls.location}</Text>
+                      <Text className="text-primary mr-2 text-right font-heebo-regular">
+                        {cls.location}
+                      </Text>
                     </View>
                   )}
                   {cls.schedule && (

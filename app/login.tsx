@@ -14,7 +14,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link, router } from 'expo-router';
 import { auth } from '../FirebaseConfig';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+
 import { useAuth } from './_layout';
 import { registerForPushNotificationsAsync } from './utils/notificationService';
 
@@ -61,8 +61,9 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setError(null);
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await auth.signInWithEmailAndPassword(email.trim(), password);
       await registerForPushNotificationsAsync();
+      setIsGuest(false);
       router.replace('/(tabs)');
     } catch (err: any) {
       setError(err.message);
