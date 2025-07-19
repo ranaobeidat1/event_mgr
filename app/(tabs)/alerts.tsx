@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  NativeSyntheticEvent, // Import this type
+  TextLayoutEventData,  // Import this type
 } from "react-native";
 import { router } from "expo-router";
 import { auth, db } from "../../FirebaseConfig";
@@ -29,6 +31,7 @@ interface AlertData {
 }
 
 const ALERTS_PAGE_SIZE = 10;
+const MAX_LINES = 4; // Define max lines as a constant
 
 export default function AlertsScreen() {
   const insets = useSafeAreaInsets();
@@ -42,6 +45,9 @@ export default function AlertsScreen() {
   const [filter, setFilter] = useState<"all" | "general" | "course">("all");
   const [expandedAlerts, setExpandedAlerts] = useState<Record<string, boolean>>({});
   const [deletingAlerts, setDeletingAlerts] = useState<Record<string, boolean>>({});
+  
+  // --- FIX #1 of 3: Add new state to track which alerts are actually truncated ---
+  const [isTruncated, setIsTruncated] = useState<Record<string, boolean>>({});
 
   // Pagination state
   const [lastVisible, setLastVisible] = useState<FirebaseFirestoreTypes.DocumentData | null>(null);
@@ -138,6 +144,17 @@ export default function AlertsScreen() {
       day: "2-digit", month: "2-digit", year: "numeric",
       hour: "2-digit", minute: "2-digit",
     });
+  };
+  
+  // --- FIX #2 of 3: New function to handle text layout and check for truncation ---
+  const handleTextLayout = (
+    e: NativeSyntheticEvent<TextLayoutEventData>,
+    alertId: string
+  ) => {
+    const wasTruncated = e.nativeEvent.lines.length >= MAX_LINES;
+    if (wasTruncated && !isTruncated[alertId]) {
+      setIsTruncated(prev => ({ ...prev, [alertId]: true }));
+    }
   };
 
   const toggleReadMore = (id: string) =>
@@ -258,8 +275,10 @@ export default function AlertsScreen() {
         ) : (
           filteredAlerts.map(alert => {
             const isExpanded = expandedAlerts[alert.id];
-            const needsTrunc = alert.message.length > 150;
             const deleting = deletingAlerts[alert.id];
+            
+            // --- FIX #3 of 3: Use the new state to decide if the button should show ---
+            const showReadMoreButton = isTruncated[alert.id];
 
             return (
               <View
@@ -299,37 +318,36 @@ export default function AlertsScreen() {
                   </Text>
                 )}
 
-                 <View className="mb-3">
-    {isExpanded ? (
-      // ─ Expanded: no truncation at all
-      <Text
-        className="text-white text-xl font-tahoma leading-relaxed text-right"
-      >
-        {alert.message}
-      </Text>
-    ) : (
-      // ─ Collapsed: always truncate to 4 lines
-      <Text
-        className="text-white text-xl font-tahoma leading-relaxed text-right"
-        numberOfLines={4}
-        ellipsizeMode="tail"
-      >
-        {alert.message}
-      </Text>
-    )}
+                <View className="mb-3">
+                  {isExpanded ? (
+                    <Text
+                      className="text-white text-xl font-tahoma leading-relaxed text-right"
+                    >
+                      {alert.message}
+                    </Text>
+                  ) : (
+                    <Text
+                      className="text-white text-xl font-tahoma leading-relaxed text-right"
+                      numberOfLines={MAX_LINES}
+                      ellipsizeMode="tail"
+                      onTextLayout={(e) => handleTextLayout(e, alert.id)}
+                    >
+                      {alert.message}
+                    </Text>
+                  )}
 
-    {needsTrunc && (
-      <TouchableOpacity
-        onPress={() => toggleReadMore(alert.id)}
-        activeOpacity={0.7}
-        className="mt-4 w-full bg-white/20 py-3 rounded-lg items-center justify-center"
-      >
-        <Text className="text-base text-white font-heebo-bold">
-          {isExpanded ? "הצג פחות" : "קרא עוד"}
-        </Text>
-      </TouchableOpacity>
-    )}
-  </View>
+                  {showReadMoreButton && (
+                    <TouchableOpacity
+                      onPress={() => toggleReadMore(alert.id)}
+                      activeOpacity={0.7}
+                      className="mt-4 w-full bg-white/20 py-3 rounded-lg items-center justify-center"
+                    >
+                      <Text className="text-base text-white font-heebo-bold">
+                        {isExpanded ? "הצג פחות" : "קרא עוד"}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
 
                 <View className="flex-row justify-between items-center">
                   <Text className="text-gray-300 text-2xl font-heebo-light">

@@ -1,8 +1,7 @@
-import { db } from '../../FirebaseConfig';
-// --- CORRECTED IMPORTS ---
-import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
+// app/utils/statisticsUtils.ts
 
-// Note: QueryDocumentSnapshot and DocumentData will now be inferred from FirebaseFirestoreTypes
+import { db } from '../../FirebaseConfig';
+import firestore, { FirebaseFirestoreTypes } from '@react-native-firebase/firestore';
 
 export interface DashboardStats {
   totalUsers: number;
@@ -10,7 +9,7 @@ export interface DashboardStats {
   totalRegistrations: number;
   totalPosts: number;
   newRegistrationsLast30Days: number;
-  activeUsers: number;
+  dailyActiveUsers: number; // Renamed for clarity from your old 'activeUsers'
   alertsSentThisMonth: number;
   courseAnalytics: CourseAnalytics[];
   courseMonthlyRegistrations: CourseMonthlyRegistrations[];
@@ -20,7 +19,7 @@ export interface DashboardStats {
 
 export interface CourseMonthlyRegistrations {
   courseId: string;
-  monthlyRegistrations: number[]; // index 0 = Jan, …, 11 = Dec
+  monthlyRegistrations: number[];
 }
 
 export interface WeeklyData {
@@ -54,29 +53,36 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
     const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
 
-    // --- CORRECTED FIRESTORE SYNTAX ---
+    // --- All queries now use the native SDK's Timestamp correctly ---
     const [
       usersSnapshot,
       coursesSnapshot,
       registrationsSnapshot,
       postsSnapshot,
-      alertsSnapshot
+      alertsSnapshot,
+      dailyActiveUsersSnapshot, // Query for the new statistic
     ] = await Promise.all([
       db.collection('users').get(),
       db.collection('courses').get(),
       db.collection('Registrations').get(),
       db.collection('posts').get(),
       db.collection('alerts')
-        .where('createdAt', '>=', FirebaseFirestoreTypes.Timestamp.fromDate(startOfMonth))
-        .get()
+        .where('createdAt', '>=', firestore.Timestamp.fromDate(startOfMonth))
+        .get(),
+      db.collection('users')
+        .where('lastSeen', '>=', firestore.Timestamp.fromDate(todayStart))
+        .get(),
     ]);
-    // --- END CORRECTION ---
 
     const totalUsers = usersSnapshot.size;
     const totalCourses = coursesSnapshot.size;
     const totalRegistrations = registrationsSnapshot.size;
     const totalPosts = postsSnapshot.size;
+    const dailyActiveUsers = dailyActiveUsersSnapshot.size;
+
     const alertsSentThisMonth = alertsSnapshot.docs
       .filter(d => d.data().notificationSent === true).length;
 
@@ -86,12 +92,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
         return dt && dt >= thirtyDaysAgo;
       }).length;
 
-    const activeUsers = usersSnapshot.docs
-      .filter(d => {
-        const dt = (d.data().createdAt as FirebaseFirestoreTypes.Timestamp)?.toDate();
-        return dt && dt >= thirtyDaysAgo;
-      }).length;
-
+    // The helper functions below work correctly with the native SDK snapshots
     const courseAnalytics = await getCourseAnalytics(coursesSnapshot, registrationsSnapshot);
     const monthlyGrowth = await calculateMonthlyGrowth(
       registrationsSnapshot,
@@ -101,23 +102,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       endOfLastMonth
     );
     const weeklyData = calculateWeeklyData(registrationsSnapshot);
-
-    const monthlyCounts: Record<string, number[]> = {};
-    courseAnalytics.forEach(c => {
-      monthlyCounts[c.courseId] = Array(12).fill(0);
-    });
-    registrationsSnapshot.docs.forEach((d) => {
-      const data = d.data();
-      const cid = data.courseId;
-      const dt = (data.registrationDate as FirebaseFirestoreTypes.Timestamp)?.toDate();
-      if (cid && dt && monthlyCounts[cid]) {
-        monthlyCounts[cid][dt.getMonth()]++;
-      }
-    });
-    const courseMonthlyRegistrations: CourseMonthlyRegistrations[] =
-      Object.entries(monthlyCounts).map(([courseId, arr]) => ({
-        courseId, monthlyRegistrations: arr
-      }));
+    const courseMonthlyRegistrations = calculateCourseMonthlyRegistrations(courseAnalytics, registrationsSnapshot);
 
     return {
       totalUsers,
@@ -125,7 +110,7 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
       totalRegistrations,
       totalPosts,
       newRegistrationsLast30Days,
-      activeUsers,
+      dailyActiveUsers, // Renamed from activeUsers for clarity
       alertsSentThisMonth,
       courseAnalytics,
       courseMonthlyRegistrations,
@@ -137,6 +122,8 @@ export const getDashboardStats = async (): Promise<DashboardStats> => {
     throw error;
   }
 };
+
+// --- Your original helper functions (they are compatible and do not need changes) ---
 
 const getCourseAnalytics = async (
   coursesSnapshot: FirebaseFirestoreTypes.QuerySnapshot,
@@ -229,4 +216,25 @@ const calculateWeeklyData = (regSnap: FirebaseFirestoreTypes.QuerySnapshot): Wee
     }
   });
   return week;
+};
+
+const calculateCourseMonthlyRegistrations = (
+  courseAnalytics: CourseAnalytics[],
+  registrationsSnapshot: FirebaseFirestoreTypes.QuerySnapshot
+): CourseMonthlyRegistrations[] => {
+  const monthlyCounts: Record<string, number[]> = {};
+  courseAnalytics.forEach(c => {
+    monthlyCounts[c.courseId] = Array(12).fill(0);
+  });
+  registrationsSnapshot.docs.forEach((d) => {
+    const data = d.data();
+    const cid = data.courseId;
+    const dt = (data.registrationDate as FirebaseFirestoreTypes.Timestamp)?.toDate();
+    if (cid && dt && monthlyCounts[cid]) {
+      monthlyCounts[cid][dt.getMonth()]++;
+    }
+  });
+  return Object.entries(monthlyCounts).map(([courseId, arr]) => ({
+      courseId, monthlyRegistrations: arr
+  }));
 };

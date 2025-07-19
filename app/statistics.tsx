@@ -1,3 +1,5 @@
+// app/(tabs)/statistics.tsx
+
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
@@ -28,15 +30,13 @@ export default function Statistics() {
   const [showAllCourses, setShowAllCourses] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
 
-  // --- CHANGE #1: Proper useEffect for auth and initial data fetching ---
   useEffect(() => {
-    // Set up the listener and clean it up when the component unmounts
     const unsubscribe = auth.onAuthStateChanged(async (user) => {
       try {
         if (user) {
           const userData = await getUser(user.uid);
           if (userData?.role === 'admin') {
-            await fetchStatistics(); // Initial fetch
+            await fetchStatistics();
           } else {
             Alert.alert('גישה נדחתה', 'רק מנהלים רשאים לצפות בדף זה');
             router.replace('/(tabs)');
@@ -51,13 +51,10 @@ export default function Statistics() {
       }
     });
 
-    // Cleanup function: this is called when the component is unmounted
     return () => unsubscribe();
   }, []);
 
-  // --- CHANGE #2: Safer way to set the initial picker value ---
   useEffect(() => {
-    // Set the selected course ID only if it hasn't been set yet and stats are available
     if (!selectedCourseId && stats?.courseAnalytics && stats.courseAnalytics.length > 0) {
       setSelectedCourseId(stats.courseAnalytics[0].courseId);
     }
@@ -76,7 +73,6 @@ export default function Statistics() {
     }
   };
   
-  // Use useCallback to memoize the onRefresh function
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchStatistics();
@@ -162,6 +158,8 @@ export default function Statistics() {
         <Text className="text-lg font-heebo-bold text-gray-900 mb-3 text-right">סקירה כללית</Text>
         <View className="flex-row-reverse flex-wrap -mx-1">
           <StatCard title="סה״כ משתמשים" value={stats.totalUsers} icon="users" color="#1A4782" />
+          {/* --- ADDED NEW STAT CARD --- */}
+          <StatCard title="משתמשים היום" value={stats.dailyActiveUsers} icon="sun-o" color="#f59e0b" />
           <StatCard title="סה״כ קורסים" value={stats.totalCourses} icon="book" color="#10b981" />
           <StatCard
             title="סה״כ רישומים"

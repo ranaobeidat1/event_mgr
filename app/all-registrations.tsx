@@ -11,118 +11,103 @@ import {
   FlatList,
   TextInput
 } from 'react-native';
-import { router, useFocusEffect, Stack } from 'expo-router';
-// --- CORRECTED IMPORTS ---
-import { db, auth } from '../FirebaseConfig';
-import { getUser, UserData } from './utils/firestoreUtils';
+import { router, Stack } from 'expo-router';
+import { auth, db } from '../FirebaseConfig';
 
-interface RegistrationData {
+// --- Using the UserData interface for app users ---
+interface UserData {
   id: string;
-  userId: string;
-  courseId: string;
-  registrationDate: any;
-  status: string;
   firstName?: string;
   lastName?: string;
-  phoneNumber?: string;
   email?: string;
-  userData?: {
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-  };
+  role?: string;
 }
 
-const AllRegistrationsList = () => {
-  const [registrations, setRegistrations] = useState<RegistrationData[]>([]);
+// Renamed component to reflect its new purpose
+export default function AllUsersScreen() {
+  // --- State now holds users, not registrations ---
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<UserData[]>([]);
+  
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filteredRegistrations, setFilteredRegistrations] = useState<RegistrationData[]>([]);
 
-  const fetchRegistrations = useCallback(async () => {
+  // This effect now fetches from the 'users' collection in real-time
+  useEffect(() => {
     const user = auth.currentUser;
     if (!user) {
-      Alert.alert('שגיאה', 'יש להתחבר מחדש');
       router.replace('/login');
       return;
     }
 
-    try {
-      const userData = await getUser(user.uid) as UserData | null;
-      if (userData?.role !== 'admin') {
-        Alert.alert('גישה נדחתה', 'רק מנהלים רשאים לצפות בדף זה');
-        router.back();
-        return;
-      }
-
-      setIsAdmin(true);
-      setLoading(true);
+    // --- 1. CHANGED DATA SOURCE: Fetching from 'users' collection ---
+    const unsubscribe = db.collection('users').onSnapshot(snapshot => {
+      const usersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as UserData[];
       
-      // --- THIS IS THE FIX ---
-      // Use the correct native syntax to fetch the collection
-      const registrationsRef = db.collection('Registrations');
-      const querySnapshot = await registrationsRef.get();
-      // --- END FIX ---
-
-      const registrationsData: RegistrationData[] = [];
-      
-      for (const doc of querySnapshot.docs) {
-        const registration = {
-          id: doc.id,
-          ...doc.data()
-        } as RegistrationData;
-        
-        registrationsData.push(registration);
-      }
-
-      setRegistrations(registrationsData);
-      setFilteredRegistrations(registrationsData);
-    } catch (error) {
-      console.error('Error fetching registrations:', error);
-      Alert.alert('שגיאה', 'אירעה שגיאה בטעינת הנרשמים');
-    } finally {
+      setUsers(usersData);
+      setFilteredUsers(usersData);
       setLoading(false);
-    }
+    }, (error) => {
+      console.error("Error fetching users:", error);
+      Alert.alert('שגיאה', 'אירעה שגיאה בטעינת המשתמשים');
+      setLoading(false);
+    });
+
+    // Unsubscribe from the listener when the component unmounts
+    return () => unsubscribe();
   }, []);
 
+  // Search logic now filters the users list
   useEffect(() => {
     if (searchQuery.trim() === '') {
-      setFilteredRegistrations(registrations);
+      setFilteredUsers(users);
     } else {
       const lowercasedQuery = searchQuery.toLowerCase();
-      const filtered = registrations.filter(registration => {
-        const fullName = `${registration.firstName || ''} ${registration.lastName || ''}`.toLowerCase();
-        const email = (registration.email || '').toLowerCase();
+      const filtered = users.filter(user => {
+        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase();
+        const email = (user.email || '').toLowerCase();
         return fullName.includes(lowercasedQuery) || email.includes(lowercasedQuery);
       });
-      setFilteredRegistrations(filtered);
+      setFilteredUsers(filtered);
     }
-  }, [searchQuery, registrations]);
+  }, [searchQuery, users]);
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchRegistrations();
-    }, [fetchRegistrations])
-  );
+  // --- 2. ADDED EDIT FUNCTIONALITY: Navigates to an edit screen ---
+  const handleEditUser = (user: UserData) => {
+    router.push({
+      pathname: './edit-user',
+      params: { 
+        userId: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+       },
+    });
+  };
 
-  const renderItem = ({ item, index }: { item: RegistrationData, index: number }) => {
+  const renderItem = ({ item, index }: { item: UserData, index: number }) => {
     const fullName = item.firstName || item.lastName ? `${item.firstName || ''} ${item.lastName || ''}` : 'שם לא ידוע';
     
     return (
       <View style={[styles.tableRow, index % 2 === 0 ? styles.evenRow : styles.oddRow]}>
         <Text style={[styles.cell, styles.nameCell]}>{fullName}</Text>
         <Text style={[styles.cell, styles.emailCell]}>{item.email || 'לא צוין'}</Text>
+        {/* --- 3. ADDED EDIT BUTTON to each row --- */}
+        <TouchableOpacity style={styles.editButton} onPress={() => handleEditUser(item)}>
+          <Text style={styles.editButtonText}>ערוך</Text>
+        </TouchableOpacity>
       </View>
     );
   };
 
-  if (!isAdmin && loading) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#1A4782" />
-          <Text style={styles.loadingText}>מאמת הרשאות וטוען נתונים...</Text>
         </View>
       </SafeAreaView>
     );
@@ -130,74 +115,67 @@ const AllRegistrationsList = () => {
 
   return (
     <>
-    <Stack.Screen options={{ headerShown: false }} />
-    <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
-      <View className="px-6 pt-5 pb-3">
-            <View className="flex-row justify-start mb-4">
-              <TouchableOpacity onPress={() => router.back()}>
-                <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
-              </TouchableOpacity>
-            </View>
-      
+      <Stack.Screen options={{ headerShown: false }} />
+      <SafeAreaView className="flex-1 bg-white" style={{direction: 'rtl'}}>
+        <View className="px-6 pt-5 pb-3">
+          <View className="flex-row justify-start mb-4">
+            <TouchableOpacity onPress={() => router.back()}>
+              <Text className="text-primary text-2xl font-heebo-medium">חזרה</Text>
+            </TouchableOpacity>
+          </View>
           <View className="items-center">
             <Text className="text-3xl font-bold text-primary">
-              רשימת כל הנרשמים
+              רשימת כל המשתמשים
             </Text>
           </View>
         </View>
 
-      <View className="px-6 mb-4">
-        <TextInput
-          className="bg-gray-100 rounded-full px-5 py-3 text-lg text-right"
-          placeholder="חפש לפי שם או אימייל..."
-          placeholderTextColor="#9CA3AF"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.trim() !== "" && (
-          <TouchableOpacity
-            className="absolute left-11 top-1/2 transform -translate-y-1/2"
-            onPress={() => setSearchQuery("")}
-          >
-            <Text className="text-gray-500 text-lg">×</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {searchQuery.trim() !== "" && (
-        <View className="px-6 mb-2">
-          <Text className="text-sm text-gray-600 text-right">
-            נמצאו {filteredRegistrations.length} נרשמים
-          </Text>
-        </View>
-      )}
-      
-      {filteredRegistrations.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Text style={styles.emptyText}>
-            {searchQuery.trim() !== "" ? "לא נמצאו תוצאות" : "אין נרשמים במערכת"}
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.listContainer}>
-          <View style={styles.tableHeader}>
-            <Text style={[styles.headerCell, styles.nameCell]}>שם</Text>
-            <Text style={[styles.headerCell, styles.emailCell]}>אימייל</Text>
-          </View>
-          
-          <FlatList
-            data={filteredRegistrations}
-            renderItem={renderItem}
-            keyExtractor={(item) => item.id}
+        <View className="px-6 mb-4">
+          <TextInput
+            className="bg-gray-100 rounded-full px-5 py-3 text-lg text-right"
+            placeholder="חפש לפי שם או אימייל..."
+            placeholderTextColor="#9CA3AF"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
           />
         </View>
-      )}
-    </SafeAreaView>
+
+        {searchQuery.trim() !== '' && (
+          <View className="px-6 mb-2">
+            <Text className="text-sm text-gray-600 text-right">
+              נמצאו {filteredUsers.length} משתמשים
+            </Text>
+          </View>
+        )}
+        
+        {filteredUsers.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={styles.emptyText}>
+              {searchQuery.trim() !== "" ? "לא נמצאו תוצאות" : "אין משתמשים במערכת"}
+            </Text>
+          </View>
+        ) : (
+          <View style={styles.listContainer}>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.headerCell, styles.nameCell]}>שם</Text>
+              <Text style={[styles.headerCell, styles.emailCell]}>אימייל</Text>
+              <View style={styles.editButton} /> {/* Placeholder for alignment */}
+            </View>
+            
+            <FlatList
+              data={filteredUsers}
+              renderItem={renderItem}
+              keyExtractor={(item) => item.id}
+            />
+          </View>
+        )}
+      </SafeAreaView>
     </>
   );
 };
 
 const styles = StyleSheet.create({
+  // ... (keeping your styles, but adding new ones for the button)
   container: { 
     flex: 1, 
     backgroundColor: '#f0f4f8' 
@@ -206,28 +184,6 @@ const styles = StyleSheet.create({
     flex: 1, 
     justifyContent: 'center', 
     alignItems: 'center' 
-  },
-  loadingText: { 
-    marginTop: 10, 
-    fontSize: 16, 
-    color: '#1A4782', 
-    fontFamily: 'Heebo-Medium' 
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-  },
-  headerTitle: { 
-    fontSize: 20, 
-    fontFamily: 'Heebo-Bold', 
-    color: '#1A4782',
-    textAlign: 'center'
   },
   emptyContainer: { 
     flex: 1, 
@@ -241,7 +197,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-    margin: 16,
+    marginHorizontal: 16,
     borderRadius: 8,
     overflow: 'hidden',
     borderWidth: 1,
@@ -252,6 +208,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1A4782',
     paddingVertical: 12,
     paddingHorizontal: 10,
+    alignItems: 'center',
   },
   headerCell: {
     color: 'white',
@@ -279,11 +236,19 @@ const styles = StyleSheet.create({
     textAlign: 'right',
   },
   nameCell: {
-    flex: 1,
+    flex: 1.5,
   },
   emailCell: {
     flex: 2,
-  }
+  },
+  editButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  editButtonText: {
+    color: '#007BFF',
+    fontFamily: 'Heebo-Medium',
+  },
 });
 
-export default AllRegistrationsList;

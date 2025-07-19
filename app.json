@@ -8,6 +8,9 @@
     "scheme": "sahlab",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+
+
+
     "extra": {
       "eas": {
         "projectId": "8372efc9-d5f0-42db-9ab8-9c4f3fa5c921"
@@ -22,10 +25,21 @@
       "googleServicesFile": "./GoogleService-Info.plist"
     },
     "android": {
+      // This adaptiveIcon is for the app icon on the home screen.
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon-foreground.png",
-        "backgroundImage": "./assets/images/adaptive-icon-background.png"
+        "backgroundColor": "#1A4782"
       },
+
+      // --- 2. ANDROID-SPECIFIC SPLASH OVERRIDE ---
+      // This is for the modern, animated splash screen on Android 12+.
+      "splash": {
+        "image": "./assets/images/adaptive-icon-foreground.png",
+        "resizeMode": "contain",
+        "backgroundColor": "#1A4782"
+      
+      },
+      
       "package": "com.sahlab.app",
       "googleServicesFile": "./google-services.json"
     },
@@ -34,21 +48,18 @@
       "backgroundColor": "#1A4782",
       "hidden": false
     },
-    "splash": {
-      "image": "./assets/images/splash-fullscreen.png",
-      "resizeMode": "cover",
-      "backgroundColor": "#1A4782"
-    },
     "web": {
       "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
+
+    // --- 3. CLEANED UP PLUGINS ARRAY ---
+    // Splash screen is no longer configured here.
     "plugins": [
       "@react-native-firebase/app",
       "@react-native-firebase/auth",
       "@react-native-firebase/app-check",
-      "expo-router",
       "expo-router",
       "expo-font",
       [

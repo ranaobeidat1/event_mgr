@@ -5,47 +5,44 @@ import React, {
   useEffect,
   useState,
 } from 'react';
-import "../FirebaseConfig"
-import { Stack, SplashScreen } from 'expo-router';
+import { Stack, SplashScreen, useRouter } from 'expo-router';
 import { useFonts } from 'expo-font';
-// --- CORRECTED IMPORTS ---
 import { auth, db } from '../FirebaseConfig';
-import { FirebaseAuthTypes } from '@react-native-firebase/auth'; // Correct type import
+import firestore from '@react-native-firebase/firestore'; // Import for serverTimestamp
+import { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  View,
-  ActivityIndicator,
-  I18nManager,
-} from 'react-native';
+import { View, ActivityIndicator, I18nManager } from 'react-native';
 import * as Device from 'expo-device';
 import './global.css';
 import { StatusBar } from 'expo-status-bar';
 import { registerForPushNotificationsAsync } from './utils/notificationService';
+import { doc, getDoc, setDoc } from 'firebase/firestore'; // Import firestore functions
 
-// ────────────────────────────────────────────────────────────
-//  Disable RTL
-// ────────────────────────────────────────────────────────────
+// Disable RTL
 I18nManager.allowRTL(false);
 I18nManager.forceRTL(false);
 
-// ────────────────────────────────────────────────────────────
-//  Auth context
-// ────────────────────────────────────────────────────────────
+
+// --- 1. UPDATED AUTH CONTEXT ---
+// Added isAdmin state and a logout function
 type AuthContextType = {
-  user: FirebaseAuthTypes.User | null; // Use correct user type
+  user: FirebaseAuthTypes.User | null;
+  isAdmin: boolean;
   isGuest: boolean;
   setIsGuest: (value: boolean) => void;
+  logout: () => Promise<void>;
 };
+
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  isAdmin: false,
   isGuest: false,
   setIsGuest: () => {},
+  logout: async () => {},
 });
 export const useAuth = () => useContext(AuthContext);
 
-// ────────────────────────────────────────────────────────────
-//  Root layout component
-// ────────────────────────────────────────────────────────────
+
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     'Heebo-Thin': require('../assets/fonts/Heebo-Thin.ttf'),
@@ -60,55 +57,69 @@ export default function RootLayout() {
     Tahoma: require('../assets/fonts/tahoma.ttf'),
   });
 
-  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null); // Use correct user type
+  const [user, setUser] = useState<FirebaseAuthTypes.User | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false); // Added isAdmin state
   const [isGuest, setIsGuest] = useState(false);
-
   const [authReady, setAuthReady] = useState(false);
-  const [pushReady, setPushReady] = useState(false);
 
-  // ────────────────────────────────────────────────────────────
-  //  Auth listener
-  // ────────────────────────────────────────────────────────────
+  const router = useRouter();
+
+
   useEffect(() => {
     if (isGuest) {
       setAuthReady(true);
-      setPushReady(true);
       return;
     }
     
-    // --- CORRECTED AUTH LISTENER SYNTAX ---
     const unsub = auth.onAuthStateChanged(async (u) => {
       setUser(u);
-      setAuthReady(true);
-
-      if (u && Device.isDevice) {
-        await registerForPushNotificationsAsync();
-      } else {
-        console.log('Skipping push registration on emulator or signed-out user');
-        if (!u && Device.isDevice && user?.uid) {
-          try {
-            // --- CORRECTED FIRESTORE SYNTAX ---
-            await db.collection('users').doc(user.uid).update({ expoPushToken: '' });
-          } catch {}
+      if (u) {
+        // --- 2. ADDED USER ACTIVITY TRACKING ---
+        // This updates 'lastSeen' for your statistics page
+        const userDocRef = db.collection('users').doc(u.uid);
+        try {
+          await userDocRef.set({
+            lastSeen: firestore.FieldValue.serverTimestamp(),
+          }, { merge: true });
+        } catch (e) { console.error("Failed to update lastSeen", e); }
+        
+        // Check user role
+        const userDoc = await userDocRef.get();
+        if (userDoc.exists()) {
+          setIsAdmin(userDoc.data()?.role === 'admin');
+        } else {
+          setIsAdmin(false);
         }
+
+        // Handle push notifications
+        if (Device.isDevice) {
+          await registerForPushNotificationsAsync();
+        }
+
+      } else {
+        // User signed out, reset admin status
+        setIsAdmin(false);
       }
-      setPushReady(true);
+      setAuthReady(true);
     });
 
     return () => unsub();
-  }, [isGuest, user?.uid]); // Added user.uid to dependency array
+  }, [isGuest]);
+  
+  // --- 3. ADDED ROBUST LOGOUT FUNCTION ---
+  // This resets all state and prevents the "stale state" glitch
+  const logout = async () => {
+    await auth.signOut();
+    setUser(null);
+    setIsAdmin(false);
+    setIsGuest(false);
+    router.replace('/login');
+  };
 
-  // ────────────────────────────────────────────────────────────
-  //  Splash until everything is ready
-  // ────────────────────────────────────────────────────────────
-  const ready = fontsLoaded && authReady && pushReady;
+  const ready = fontsLoaded && authReady;
 
   useEffect(() => {
-    if (ready) {
-      SplashScreen.hideAsync();
-    } else {
-      SplashScreen.preventAutoHideAsync();
-    }
+    if (ready) SplashScreen.hideAsync();
   }, [ready]);
 
   if (!ready) {
@@ -119,51 +130,31 @@ export default function RootLayout() {
     );
   }
 
-  // ────────────────────────────────────────────────────────────
-  //  Render navigation
-  // ────────────────────────────────────────────────────────────
   return (
     <SafeAreaProvider>
-      <StatusBar 
-        style="light" 
-        backgroundColor="#1A4782" 
-      />
-    <AuthContext.Provider value={{ user, isGuest, setIsGuest }}>
-      <Stack>
-        <Stack.Screen name="index" options={{ headerShown: false }} />
-        <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="register" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="posts/[id]" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="posts/[id]/edit"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="posts/create" options={{ headerShown: false }} />
-        <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
-        <Stack.Screen name="add-class" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="registrations-list"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="alerts/create-alert"
-          options={{ headerShown: false }}
-        />
-         <Stack.Screen
-          name="alerts/edit-alert"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="users" options={{ headerShown: false }} />
-        <Stack.Screen
-          name="all-registrations"
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen name="statistics" options={{ headerShown: false }} />
-      </Stack>
-    </AuthContext.Provider>
+      <StatusBar style="light" backgroundColor="#1A4782" />
+      <AuthContext.Provider value={{ user, isAdmin, isGuest, setIsGuest, logout }}>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="forgot-password" options={{ headerShown: false }} />
+          <Stack.Screen name="profile" options={{ headerShown: false }} />
+          <Stack.Screen name="login" options={{ headerShown: false }} />
+          <Stack.Screen name="register" options={{ headerShown: false }} />
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="posts/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="posts/[id]/edit" options={{ headerShown: false }} />
+          <Stack.Screen name="posts/create" options={{ headerShown: false }} />
+          <Stack.Screen name="classes/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="add-class" options={{ headerShown: false }} />
+          <Stack.Screen name="registrations-list" options={{ headerShown: false }} />
+          <Stack.Screen name="alerts/create-alert" options={{ headerShown: false }} />
+          <Stack.Screen name="alerts/edit-alert" options={{ headerShown: false }} />
+          <Stack.Screen name="users" options={{ headerShown: false }} />
+          <Stack.Screen name="all-registrations" options={{ headerShown: false }} />
+          <Stack.Screen name="statistics" options={{ headerShown: false }} />
+          <Stack.Screen name="edit-user" options={{ headerShown: false }}/>
+        </Stack>
+      </AuthContext.Provider>
     </SafeAreaProvider>
   );
 }
