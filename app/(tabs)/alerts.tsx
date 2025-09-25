@@ -321,13 +321,13 @@ export default function AlertsScreen() {
                 <View className="mb-3">
                   {isExpanded ? (
                     <Text
-                      className="text-white text-xl font-tahoma leading-relaxed text-right"
+                      className="text-white text-xl font-heebo-regular leading-relaxed text-right"
                     >
                       {alert.message}
                     </Text>
                   ) : (
                     <Text
-                      className="text-white text-xl font-tahoma leading-relaxed text-right"
+                      className="text-white text-xl font-heebo-regular leading-relaxed text-right"
                       numberOfLines={MAX_LINES}
                       ellipsizeMode="tail"
                       onTextLayout={(e) => handleTextLayout(e, alert.id)}

@@ -16,6 +16,10 @@
       "android": {
         "buildType": "app-bundle"
       }
+    },
+    "apk": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" }
     }
   },
   "submit": {

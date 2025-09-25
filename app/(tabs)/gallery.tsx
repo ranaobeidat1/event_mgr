@@ -49,7 +49,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
+          <Text className="mt-1 text-white text-right font-heebo-regular" numberOfLines={4}>
             {item.content}
           </Text>
         </View>
@@ -86,7 +86,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
+          <Text className="mt-1 text-white text-right font-heebo-regular" numberOfLines={4}>
             {item.content}
           </Text>
         </TouchableOpacity>
@@ -138,7 +138,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
+          <Text className="mt-1 text-white text-right font-heebo-regular" numberOfLines={4}>
             {item.content}
           </Text>
         </View>
@@ -189,7 +189,7 @@ const PostItem = ({ item }: { item: Post }) => {
           <Text className="text-xl font-heebo-bold text-white text-right">
             {item.title}
           </Text>
-          <Text className="mt-1 text-white text-right font-tahoma" numberOfLines={4}>
+          <Text className="mt-1 text-white text-right font-heebo-regular" numberOfLines={4}>
             {item.content}
           </Text>
         </View>

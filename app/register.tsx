@@ -5,27 +5,38 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  Image,
   Animated,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  SafeAreaView, // Added SafeAreaView for consistency
+  SafeAreaView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
-// --- CORRECTED IMPORTS ---
-import { auth, db } from '../FirebaseConfig';
-import { FirebaseFirestoreTypes } from '@react-native-firebase/firestore'; // Correct type import
-import { useAuth } from './_layout'; 
- import { FieldValue, Timestamp, GeoPoint } from '../FirebaseConfig';
+
+// Firebase
+import { auth, db, FieldValue } from '../FirebaseConfig';
+
+// App state
+import { useAuth } from './_layout';
+
 export default function RegisterScreen() {
   const { setIsGuest } = useAuth();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const insets = useSafeAreaInsets();
 
+  // ---- form state ----
+  const [firstName, setFirstName] = useState('');
+  const [lastName,  setLastName]  = useState('');
+  const [email,     setEmail]     = useState('');
+  const [password,  setPassword]  = useState('');
+  const [error,     setError]     = useState<string | null>(null);
+
+  // ---- input refs for next-focus ----
+  const lastNameRef  = useRef<TextInput>(null);
+  const emailRef     = useRef<TextInput>(null);
+  const passwordRef  = useRef<TextInput>(null);
+
+  // ---- animations ----
   const logoScale = useRef(new Animated.Value(0)).current;
   const fieldAnims = [
     useRef(new Animated.Value(0)).current,
@@ -36,7 +47,6 @@ export default function RegisterScreen() {
   ];
 
   useEffect(() => {
-    // --- CORRECTED AUTH LISTENER SYNTAX ---
     const unsub = auth.onAuthStateChanged(user => {
       if (user) router.replace('/(tabs)');
     });
@@ -72,7 +82,6 @@ export default function RegisterScreen() {
     }
 
     try {
-      // --- CORRECTED AUTH & FIRESTORE SYNTAX ---
       const { user } = await auth.createUserWithEmailAndPassword(
         email.trim(),
         password
@@ -83,7 +92,7 @@ export default function RegisterScreen() {
         lastName,
         email,
         role: 'user',
-        createdAt: FieldValue.serverTimestamp(), // Correct server timestamp
+        createdAt: FieldValue.serverTimestamp(),
       });
 
       setIsGuest(false);
@@ -106,16 +115,16 @@ export default function RegisterScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} // Android: let window resize
         className="flex-1"
       >
         <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
           contentContainerStyle={{
-            flexGrow: 1,
-            justifyContent: 'flex-start',
-            alignItems: 'center',
             paddingTop: 60,
             paddingHorizontal: 20,
+            paddingBottom: insets.bottom + 40, // keep last field above keyboard
           }}
         >
           <Animated.Image
@@ -124,12 +133,14 @@ export default function RegisterScreen() {
               width: 192,
               height: 192,
               marginBottom: 48,
+              alignSelf: 'center',
               transform: [{ scale: logoScale }],
             }}
             resizeMode="contain"
           />
 
           <View className="w-full mt-10">
+            {/* First name */}
             <Animated.View
               style={{
                 opacity: fieldAnims[0],
@@ -137,14 +148,19 @@ export default function RegisterScreen() {
               }}
             >
               <TextInput
+                ref={undefined}
                 className="w-full bg-gray-300 rounded-full px-5 py-3 text-lg font-Heebo-Regular mb-6 text-right"
                 placeholder="שם פרטי"
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholderTextColor="#9CA3AF"
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => lastNameRef.current?.focus()}
               />
             </Animated.View>
 
+            {/* Last name */}
             <Animated.View
               style={{
                 opacity: fieldAnims[1],
@@ -152,14 +168,19 @@ export default function RegisterScreen() {
               }}
             >
               <TextInput
+                ref={lastNameRef}
                 className="w-full bg-gray-300 rounded-full px-5 py-3 text-lg font-Heebo-Regular mb-6 text-right"
                 placeholder="שם משפחה"
                 value={lastName}
                 onChangeText={setLastName}
                 placeholderTextColor="#9CA3AF"
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => emailRef.current?.focus()}
               />
             </Animated.View>
 
+            {/* Email */}
             <Animated.View
               style={{
                 opacity: fieldAnims[2],
@@ -167,16 +188,22 @@ export default function RegisterScreen() {
               }}
             >
               <TextInput
+                ref={emailRef}
                 className="w-full bg-gray-300 rounded-full px-5 py-3 text-lg font-Heebo-Regular mb-6 text-right"
                 placeholder="מייל"
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
                 autoCapitalize="none"
+                autoCorrect={false}
                 placeholderTextColor="#9CA3AF"
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
             </Animated.View>
 
+            {/* Password */}
             <Animated.View
               style={{
                 opacity: fieldAnims[3],
@@ -184,12 +211,16 @@ export default function RegisterScreen() {
               }}
             >
               <TextInput
+                ref={passwordRef}
                 className="w-full bg-gray-300 rounded-full px-5 py-3 text-lg font-Heebo-Regular text-right"
                 placeholder="סיסמא"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
                 placeholderTextColor="#9CA3AF"
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={handleRegister}
               />
             </Animated.View>
 
@@ -206,6 +237,7 @@ export default function RegisterScreen() {
               </Animated.View>
             )}
 
+            {/* Submit */}
             <Animated.View
               style={{
                 opacity: fieldAnims[4],
@@ -215,6 +247,7 @@ export default function RegisterScreen() {
               <TouchableOpacity
                 onPress={handleRegister}
                 className="mt-6 bg-primary rounded-full px-4 py-3 items-center w-2/3 self-center"
+                activeOpacity={0.9}
               >
                 <Text className="text-white text-xl font-Heebo-Bold">
                   להירשם

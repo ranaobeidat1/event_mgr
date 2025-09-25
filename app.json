@@ -39,7 +39,7 @@
         "backgroundColor": "#1A4782"
       
       },
-      
+      "softwareKeyboardLayoutMode": "resize",
       "package": "com.sahlab.app",
       "googleServicesFile": "./google-services.json"
     },
@@ -66,6 +66,12 @@
         "expo-build-properties",
         {
           "android": {
+            "gradleProperties": {
+            "org.gradle.jvmargs": "-Xmx8g -Xms2g -XX:MaxMetaspaceSize=1g -Dkotlin.daemon.jvm.options=-Xmx2g -Dfile.encoding=UTF-8",
+            "org.gradle.workers.max": "1",
+            "android.enableDexingArtifactTransform": "false"
+          },
+          "enableProguardInReleaseBuilds": true,
             "compileSdkVersion": 36,
             "targetSdkVersion": 36
           }

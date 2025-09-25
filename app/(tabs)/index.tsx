@@ -46,7 +46,8 @@ export default function PostsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const bottomPadding = insets.bottom + 100;
-
+  const CIRCLE = 112;     // w-28 / h-28
+  const HALF   = CIRCLE/2;
   const [isAdmin, setIsAdmin] = useState(false);
   const [alerts, setAlerts] = useState<AlertData[]>([]);
   const [loadingAlerts, setLoadingAlerts] = useState(true);
@@ -217,8 +218,7 @@ export default function PostsScreen() {
           ברוכים הבאים לאפליקציה שלנו!
         </Text>
 
-        <View className="mx-4 mb-4 rounded-[20px] p-0.5 bg-[#1A4782] shadow-2xl shadow-black">
-          <View className="bg-white rounded-2xl p-4">
+        <View className="mx-4 mb-4">
             <Text className="text-[#1A4782] text-lg font-bold text-right mb-2">
               התראות אחרונות
             </Text>
@@ -250,7 +250,7 @@ export default function PostsScreen() {
                   </View>
                   {isExpanded && (
                     <View className="mt-3 pt-3 border-t border-white/30">
-                      <Text className="text-white text-lg text-right font-tahoma">
+                      <Text className="text-white text-lg text-right font-heebo-regular">
                         {a.message}
                       </Text>
                     </View>
@@ -258,62 +258,132 @@ export default function PostsScreen() {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          
         </View>
 
         <Text className="text-[#1A4782] text-xl font-bold text-center my-2">החוגים שלנו</Text>
 
-        <View className="mx-4 mb-6">
-          {rows.map((row, idx) => (
-            <View key={idx} className="flex-row justify-center mb-4">
-              {row.map(c => (
-                <View key={c.id} className="items-center mx-3">
-                  <TouchableOpacity
-                    onPress={() => router.push(`/classes/${c.courseId}`)}
-                    className="w-28 h-28 rounded-full bg-[#1A4782] justify-center items-center shadowcdxl relative shadow-black"
-                    activeOpacity={0.85}
-                  >
-                    {c.logoUri ? (
-                      <>
-                        <Image source={{ uri: c.logoUri }} className="w-20 h-20 rounded-full mb-1" />
-                        <View className="absolute bottom-1 px-1">
-                          <Text className="text-white text-sm font-heebo-bold text-center max-w-[80px]">
-                            {c.courseName}
-                          </Text>
-                        </View>
-                      </>
-                    ) : (
-                      <Text className="text-white font-bold text-center px-2">{c.courseName}</Text>
-                    )}
-                  </TouchableOpacity>
+      
 
-                  {isAdmin && (
-                    <TouchableOpacity
-                      onPress={() => removeCircle(c.id)}
-                      className="absolute -top-2 -right-2 bg-red-600 rounded-xl w-6 h-6 justify-center items-center shadow-md"
-                    >
-                      <Text className="text-white text-xs leading-3 font-bold">×</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-            </View>
-          ))}
 
-          {isAdmin && circles.length < 6 && (
-              <View className="items-center mx-3">
-                <TouchableOpacity
-                  onPress={() => setModalVisible(true)}
-                  className="w-28 h-28 rounded-full border-2 border-dashed border-gray-400 justify-center items-center"
-                  activeOpacity={0.8}
+<View className="mx-4 mb-6">
+  {rows.map((row, idx) => (
+    <View key={idx} className="flex-row justify-center mb-4">
+      {row.map(c => {
+        const name = (c.courseName ?? '').trim();
+        // baseline size + coarse downstep for very long titles (fine tuning happens via adjustsFontSizeToFit)
+        let base = 13;
+        if (name.length > 14) base = 12;
+        if (name.length > 18) base = 11;
+        if (name.length > 24) base = 10;
+        if (name.length > 30) base = 9;
+
+        return (
+          <View key={c.id} className="items-center mx-3" style={{ width: CIRCLE }}>
+            <TouchableOpacity
+              onPress={() => router.push(`/classes/${c.courseId}`)}
+              activeOpacity={0.85}
+              className="relative rounded-full overflow-hidden"
+              style={{ width: CIRCLE, height: CIRCLE, backgroundColor: '#1A4782' }}
+            >
+              {/* TOP HALF: icon area (centered, contain, never crosses midline) */}
+              <View
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, right: 0,
+                  height: HALF,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                pointerEvents="none"
+              >
+                {c.logoUri ? (
+                  <Image
+                    source={{ uri: c.logoUri }}
+                    resizeMode="contain"
+                    style={{
+                      width: CIRCLE * 0.66,  // fills width nicely
+                      height: HALF * 0.8,    // guarantees it stays in the upper half
+                    }}
+                  />
+                ) : (
+                  <Ionicons name="image-outline" size={CIRCLE * 0.36} color="#fff" />
+                )}
+              </View>
+
+              {/* MIDLINE (very subtle divider) */}
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 10, right: 10,
+                  top: HALF - 0.5,
+                  height: 1,
+                  backgroundColor: 'rgba(255,255,255,0.18)',
+                }}
+                pointerEvents="none"
+              />
+
+              {/* BOTTOM HALF: text area (auto-shrink, centered, padded from rim) */}
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: 0, left: 0, right: 0,
+                  height: HALF,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingHorizontal: 10,
+                  paddingTop: 6, // a little breathing room above the text
+                }}
+                pointerEvents="none"
+              >
+                <Text
+                  className="text-white text-center font-heebo-bold"
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}    // will shrink further if needed
+                  style={{
+                    fontSize: base,
+                    lineHeight: base + 2,
+                    includeFontPadding: false,
+                    textAlignVertical: 'center',
+                  }}
                 >
-                  <View className="w-12 h-12 rounded-full bg-[#1A4782] justify-center items-center">
-                    <Text className="text-white text-3xl font-bold -mt-1">+</Text>
-                  </View>
-                </TouchableOpacity>
-            </View>
-          )}
+                  {name}
+                </Text>
+              </View>
+            </TouchableOpacity>
+
+            {isAdmin && (
+              <TouchableOpacity
+                onPress={() => removeCircle(c.id)}
+                className="absolute -top-2 -right-2 bg-red-600 rounded-xl w-6 h-6 justify-center items-center shadow-md"
+              >
+                <Text className="text-white text-xs leading-3 font-bold">×</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      })}
+    </View>
+  ))}
+
+  {isAdmin && circles.length < 6 && (
+    <View className="items-center mx-3">
+      <TouchableOpacity
+        onPress={() => setModalVisible(true)}
+        className="w-28 h-28 rounded-full border-2 border-dashed border-gray-400 justify-center items-center"
+        activeOpacity={0.8}
+      >
+        <View className="w-12 h-12 rounded-full bg-[#1A4782] justify-center items-center">
+          <Text className="text-white text-3xl font-bold -mt-1">+</Text>
         </View>
+      </TouchableOpacity>
+    </View>
+  )}
+</View>
+
+
 
         <View className="items-center mt-2">
           <TouchableOpacity
